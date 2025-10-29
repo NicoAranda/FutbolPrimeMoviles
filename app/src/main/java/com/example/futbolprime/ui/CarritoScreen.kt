@@ -98,7 +98,7 @@ fun CarritoScreen(
                         .padding(top = 100.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Tu carrito está vacío 😢", style = MaterialTheme.typography.bodyLarge)
+                    Text("Tu carrito está vacío", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -192,7 +192,6 @@ fun CarritoScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 🧾 FORMULARIO DE PAGO
                 Text(
                     text = "Datos de Pago",
                     style = MaterialTheme.typography.titleMedium,
@@ -271,7 +270,7 @@ fun CarritoScreen(
                             carritoRepo.vaciarCarrito()
                             carrito = emptyList()
                             viewModel.limpiarCampos()
-                            Toast.makeText(context, "Compra realizada con éxito ✅", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Compra realizada con éxito", Toast.LENGTH_LONG).show()
 
                             // 🔔 Notificación segura
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -312,7 +311,7 @@ fun enviarNotificacion(context: android.content.Context) {
 
     val builder = NotificationCompat.Builder(context, NotificationUtils.CHANNEL_ID)
         .setSmallIcon(android.R.drawable.stat_sys_download_done)
-        .setContentTitle("Compra completada 🛍️")
+        .setContentTitle("Compra completada")
         .setContentText("Tu compra se ha procesado correctamente. ¡Gracias por confiar en Fútbol Prime!")
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .setAutoCancel(true)
