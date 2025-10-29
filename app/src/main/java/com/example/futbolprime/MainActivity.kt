@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.navigation.compose.rememberNavController
 import com.example.futbolprime.navigation.AppNavigation
 import com.example.futbolprime.ui.theme.FutbolPrimeTheme
+import com.example.futbolprime.utils.NotificationUtils
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,5 +21,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        NotificationUtils.createNotificationChannel(this)
     }
 }

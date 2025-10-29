@@ -121,4 +121,19 @@ class CarritoRepository(context: Context) {
         db.delete(DatabaseHelper.TABLE_CARRITO, null, null)
         db.close()
     }
+
+    fun actualizarCantidad(productoId: Int, nuevaCantidad: Int) {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            put(DatabaseHelper.COLUMN_CARRITO_CANTIDAD, nuevaCantidad)
+        }
+        db.update(
+            DatabaseHelper.TABLE_CARRITO,
+            values,
+            "${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = ?",
+            arrayOf(productoId.toString())
+        )
+        db.close()
+    }
+
 }

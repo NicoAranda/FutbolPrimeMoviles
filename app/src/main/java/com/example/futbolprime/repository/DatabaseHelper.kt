@@ -128,6 +128,16 @@ class DatabaseHelper(context: Context) :
                 put(COLUMN_PROD_STOCK, 8)
                 put(COLUMN_PROD_MARCA, "Nike")
                 put(COLUMN_PROD_DESCRIPCION, "Zapatillas con tracción avanzada y amortiguación ligera.")
+            },
+            ContentValues().apply {
+                put(COLUMN_PROD_SKU, "SKU003")
+                put(COLUMN_PROD_NOMBRE, "Zapatillas Hombre Fútbol")
+                put(COLUMN_PROD_PRECIO, 89990)
+                put(COLUMN_PROD_TALLA, 42)
+                put(COLUMN_PROD_COLOR, "Rosa")
+                put(COLUMN_PROD_STOCK, 8)
+                put(COLUMN_PROD_MARCA, "Nike")
+                put(COLUMN_PROD_DESCRIPCION, "Zapatillas con tracción avanzada y amortiguación ligera.")
             }
         )
 
