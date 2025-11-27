@@ -1,7 +1,6 @@
 package com.example.futbolprime.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.repository.ProductoRepository
@@ -10,54 +9,74 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * `HomeViewModel` se encarga de manejar la lógica de negocio para la pantalla principal
- * de productos. Se comunica con el `ProductoRepository` para obtener los datos desde la BD.
+ * HomeViewModel ahora carga productos desde la API REST
  */
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
+class HomeViewModel : ViewModel() {
 
-    private val repository = ProductoRepository(application)
+    private val repository = ProductoRepository()
 
     // Estado observable para la lista de productos
     private val _productos = MutableStateFlow<List<Producto>>(emptyList())
     val productos: StateFlow<List<Producto>> = _productos
+
+    // Estado de carga
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    // Estado de error
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
 
     init {
         cargarProductos()
     }
 
     /**
-     * Carga los productos desde la base de datos usando una corrutina.
+     * Carga los productos desde la API
      */
-    private fun cargarProductos() {
+    fun cargarProductos() {
         viewModelScope.launch {
-            _productos.value = repository.obtenerProductos()
+            _isLoading.value = true
+            _error.value = null
+
+            try {
+                val productosObtenidos = repository.obtenerProductos()
+                _productos.value = productosObtenidos
+
+                if (productosObtenidos.isEmpty()) {
+                    _error.value = "No se encontraron productos"
+                }
+            } catch (e: Exception) {
+                _error.value = "Error al cargar productos: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
     /**
-     * Permite refrescar los productos manualmente.
+     * Permite refrescar los productos manualmente
      */
     fun actualizarLista() {
         cargarProductos()
     }
 
     /**
-     * Agrega un nuevo producto.
+     * Busca productos por tipo
      */
-    fun agregarProducto(producto: Producto) {
+    fun buscarPorTipo(tipo: String) {
         viewModelScope.launch {
-            repository.agregarProducto(producto)
-            cargarProductos()
-        }
-    }
+            _isLoading.value = true
+            _error.value = null
 
-    /**
-     * Elimina un producto por su ID.
-     */
-    fun eliminarProducto(productoId: Int) {
-        viewModelScope.launch {
-            repository.eliminarProducto(productoId)
-            cargarProductos()
+            try {
+                val productosObtenidos = repository.obtenerProductosPorTipo(tipo)
+                _productos.value = productosObtenidos
+            } catch (e: Exception) {
+                _error.value = "Error al buscar productos: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }

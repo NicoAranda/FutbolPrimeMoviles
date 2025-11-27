@@ -1,139 +1,122 @@
 package com.example.futbolprime.repository
 
-import android.content.ContentValues
-import android.content.Context
-import android.database.Cursor
-import com.example.futbolprime.R
+import android.util.Log
 import com.example.futbolprime.model.Producto
+import com.example.futbolprime.network.*
+import com.example.futbolprime.R
 
-class CarritoRepository(context: Context) {
+/**
+ * CarritoRepository ahora consume la API REST
+ * Requiere un usuarioId para gestionar el carrito
+ */
+class CarritoRepository {
 
-    private val dbHelper = DatabaseHelper(context)
+    private val apiService = RetrofitClient.apiService
 
     /**
-     * Agrega un producto al carrito.
-     * Si ya existe, incrementa la cantidad.
+     * Agrega un producto al carrito del usuario
      */
-    fun agregarAlCarrito(producto: Producto) {
-        val db = dbHelper.writableDatabase
-
-        // Verificar si el producto ya existe en el carrito
-        val cursor = db.query(
-            DatabaseHelper.TABLE_CARRITO,
-            arrayOf(DatabaseHelper.COLUMN_CARRITO_CANTIDAD),
-            "${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = ?",
-            arrayOf(producto.id.toString()),
-            null, null, null
-        )
-
-        if (cursor.moveToFirst()) {
-            // Ya existe → aumentar cantidad
-            val cantidadActual =
-                cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.COLUMN_CARRITO_CANTIDAD))
-            val valores = ContentValues().apply {
-                put(DatabaseHelper.COLUMN_CARRITO_CANTIDAD, cantidadActual + 1)
-            }
-            db.update(
-                DatabaseHelper.TABLE_CARRITO,
-                valores,
-                "${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = ?",
-                arrayOf(producto.id.toString())
+    suspend fun agregarAlCarrito(usuarioId: Long, productoSku: String, cantidad: Int = 1): Boolean {
+        return try {
+            val request = CrearCarritoItemDTO(
+                usuarioId = usuarioId,
+                productoSku = productoSku,
+                cantidad = cantidad
             )
-        } else {
-            // No existe → agregar nuevo
-            val valores = ContentValues().apply {
-                put(DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID, producto.id)
-                put(DatabaseHelper.COLUMN_CARRITO_CANTIDAD, 1)
+            val response = apiService.agregarItemAlCarrito(request)
+            response.isSuccessful
+        } catch (e: Exception) {
+            Log.e("CarritoRepository", "Error agregando al carrito: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Obtiene el carrito completo del usuario
+     */
+    suspend fun obtenerCarrito(usuarioId: Long): List<Pair<Producto, Int>> {
+        return try {
+            val response = apiService.obtenerCarritoUsuario(usuarioId)
+            if (response.isSuccessful) {
+                val carritoDTO = response.body()
+                carritoDTO?.items?.map { item ->
+                    val producto = crearProductoDesdeItem(item)
+                    Pair(producto, item.cantidad)
+                } ?: emptyList()
+            } else {
+                Log.e("CarritoRepository", "Error: ${response.code()}")
+                emptyList()
             }
-            db.insert(DatabaseHelper.TABLE_CARRITO, null, valores)
+        } catch (e: Exception) {
+            Log.e("CarritoRepository", "Exception obteniendo carrito: ${e.message}", e)
+            emptyList()
         }
-
-        cursor.close()
-        db.close()
     }
 
     /**
-     * Obtiene todos los productos del carrito junto con sus cantidades.
+     * Actualiza la cantidad de un item en el carrito
      */
-    fun obtenerCarrito(): List<Pair<Producto, Int>> {
-        val db = dbHelper.readableDatabase
-        val carrito = mutableListOf<Pair<Producto, Int>>()
-
-        val cursor = db.rawQuery(
-            """
-            SELECT p.*, c.cantidad 
-            FROM ${DatabaseHelper.TABLE_CARRITO} c
-            JOIN ${DatabaseHelper.TABLE_PRODUCTOS} p
-            ON c.${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = p.${DatabaseHelper.COLUMN_PROD_ID}
-            """.trimIndent(),
-            null
-        )
-
-        with(cursor) {
-            while (moveToNext()) {
-                val id = getInt(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_ID))
-                val producto = Producto(
-                    id = id,
-                    sku = getString(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_SKU)),
-                    nombre = getString(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_NOMBRE)),
-                    precio = getInt(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_PRECIO)),
-                    talla = getInt(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_TALLA)),
-                    color = getString(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_COLOR)),
-                    stock = getInt(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_STOCK)),
-                    marca = getString(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_MARCA)),
-                    descripcion = getString(getColumnIndexOrThrow(DatabaseHelper.COLUMN_PROD_DESCRIPCION)),
-                    imagen = when (id) { // 👈 Asigna imagen local según ID
-                        1 -> R.drawable.balonadidas
-                        2 -> R.drawable.poleramilan
-                        3 -> R.drawable.zapatillasnike
-                        else -> R.drawable.ic_launcher_foreground
-                    }
-                )
-                val cantidad =
-                    getInt(getColumnIndexOrThrow(DatabaseHelper.COLUMN_CARRITO_CANTIDAD))
-                carrito.add(Pair(producto, cantidad))
-            }
+    suspend fun actualizarCantidad(itemId: Long, nuevaCantidad: Int): Boolean {
+        return try {
+            val request = ActualizarCarritoItemDTO(cantidad = nuevaCantidad)
+            val response = apiService.actualizarItemCarrito(itemId, request)
+            response.isSuccessful
+        } catch (e: Exception) {
+            Log.e("CarritoRepository", "Error actualizando cantidad: ${e.message}", e)
+            false
         }
-
-        cursor.close()
-        db.close()
-        return carrito
     }
 
     /**
-     * Elimina un producto del carrito.
+     * Elimina un producto del carrito
      */
-    fun eliminarDelCarrito(productoId: Int) {
-        val db = dbHelper.writableDatabase
-        db.delete(
-            DatabaseHelper.TABLE_CARRITO,
-            "${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = ?",
-            arrayOf(productoId.toString())
-        )
-        db.close()
+    suspend fun eliminarDelCarrito(carritoId: Long, productoId: Long): Boolean {
+        return try {
+            val response = apiService.eliminarProductoDelCarrito(carritoId, productoId)
+            response.isSuccessful
+        } catch (e: Exception) {
+            Log.e("CarritoRepository", "Error eliminando producto: ${e.message}", e)
+            false
+        }
     }
 
     /**
-     * Vacía completamente el carrito.
+     * Vacía completamente el carrito
      */
-    fun vaciarCarrito() {
-        val db = dbHelper.writableDatabase
-        db.delete(DatabaseHelper.TABLE_CARRITO, null, null)
-        db.close()
-    }
-
-    fun actualizarCantidad(productoId: Int, nuevaCantidad: Int) {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put(DatabaseHelper.COLUMN_CARRITO_CANTIDAD, nuevaCantidad)
+    suspend fun vaciarCarrito(carritoId: Long): Boolean {
+        return try {
+            val response = apiService.vaciarCarrito(carritoId)
+            response.isSuccessful
+        } catch (e: Exception) {
+            Log.e("CarritoRepository", "Error vaciando carrito: ${e.message}", e)
+            false
         }
-        db.update(
-            DatabaseHelper.TABLE_CARRITO,
-            values,
-            "${DatabaseHelper.COLUMN_CARRITO_PRODUCTO_ID} = ?",
-            arrayOf(productoId.toString())
-        )
-        db.close()
     }
 
+    /**
+     * Crea un objeto Producto desde un CarritoItemDTO
+     */
+    private fun crearProductoDesdeItem(item: CarritoItemDTO): Producto {
+        return Producto(
+            id = item.id.toInt(),
+            sku = item.productoSku,
+            nombre = item.productoNombre,
+            precio = item.precioUnitario.toInt(),
+            talla = 0, // No disponible en el DTO del carrito
+            color = "N/A",
+            stock = 0,
+            marca = "N/A",
+            descripcion = "",
+            imagen = asignarImagenPorSku(item.productoSku)
+        )
+    }
+
+    private fun asignarImagenPorSku(sku: String): Int {
+        return when (sku) {
+            "SKU001" -> R.drawable.balonadidas
+            "SKU002" -> R.drawable.poleramilan
+            "SKU003" -> R.drawable.zapatillasnike
+            else -> R.drawable.ic_launcher_foreground
+        }
+    }
 }
