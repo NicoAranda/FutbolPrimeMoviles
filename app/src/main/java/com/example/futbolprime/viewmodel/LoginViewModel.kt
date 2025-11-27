@@ -1,5 +1,6 @@
 package com.example.futbolprime.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
@@ -36,9 +37,9 @@ class LoginViewModel : ViewModel() {
             "El usuario no puede estar vacío"
         } else null
 
-        passwordError.value = if (password.value.length < 4) {
+        passwordError.value = if (password.value.length < 6) {
             valido = false
-            "La contraseña debe tener al menos 4 caracteres"
+            "La contraseña debe tener al menos 6 caracteres"
         } else null
 
         return valido
@@ -56,20 +57,51 @@ class LoginViewModel : ViewModel() {
             try {
                 val request = LoginRequestDTO(
                     email = username.value,
-                    contrasena = password.value
+                    password = password.value  // ✅ CORREGIDO: Ahora usa "password"
                 )
 
+                // 🔹 LOG: Request que se está enviando
+                Log.d("LoginViewModel", "Intentando login con:")
+                Log.d("LoginViewModel", "Email: ${request.email}")
+                Log.d("LoginViewModel", "Contraseña length: ${request.password.length}")
+
                 val response = apiService.login(request)
+
+                // 🔹 LOG: Response completo
+                Log.d("LoginViewModel", "Response code: ${response.code()}")
+                Log.d("LoginViewModel", "Response message: ${response.message()}")
+                Log.d("LoginViewModel", "Response isSuccessful: ${response.isSuccessful}")
 
                 if (response.isSuccessful && response.body() != null) {
                     val loginResponse = response.body()!!
                     _usuarioLogueado.value = loginResponse
                     _loginState.value = LoginState.Success(loginResponse)
+                    Log.d("LoginViewModel", "Login exitoso: ${loginResponse.nombre}")
                 } else {
-                    _loginState.value = LoginState.Error("Credenciales incorrectas")
+                    // Intentar leer el error del backend
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("LoginViewModel", "Error body: $errorBody")
+
+                    val errorMsg = when (response.code()) {
+                        401 -> "Email o contraseña incorrectos"
+                        400 -> "Datos inválidos. Verifica el email y contraseña"
+                        404 -> "Usuario no encontrado"
+                        500 -> "Error en el servidor"
+                        else -> "Error: ${response.code()} - ${response.message()}"
+                    }
+                    Log.e("LoginViewModel", "Login fallido: $errorMsg")
+                    _loginState.value = LoginState.Error(errorMsg)
                 }
             } catch (e: Exception) {
-                _loginState.value = LoginState.Error("Error de conexión: ${e.message}")
+                Log.e("LoginViewModel", "Excepción en login: ${e.message}", e)
+                val errorMsg = when {
+                    e.message?.contains("Unable to resolve host") == true ->
+                        "No se puede conectar al servidor. Verifica que la API esté corriendo."
+                    e.message?.contains("Failed to connect") == true ->
+                        "Error de conexión. Verifica la URL de la API."
+                    else -> "Error de conexión: ${e.message}"
+                }
+                _loginState.value = LoginState.Error(errorMsg)
             }
         }
     }

@@ -2,7 +2,7 @@ package com.example.futbolprime.network
 
 import com.google.gson.annotations.SerializedName
 
-// ==================== PRODUCTOS ====================
+//  PRODUCTOS
 data class ProductoDTO(
     val sku: String,
     val nombre: String,
@@ -49,41 +49,36 @@ data class ActualizarProductoDTO(
 // ==================== USUARIOS ====================
 data class UsuarioDTO(
     val id: Long,
-    val nombreCompleto: String,
+    val nombre: String,
     val email: String,
-    val telefono: String?,
-    val direccion: String?,
-    val rol: String,
-    val activo: Boolean
+    val rol: String
 )
 
 data class CrearUsuarioDTO(
-    val nombreCompleto: String,
+    val nombre: String,
     val email: String,
-    val contrasena: String,
-    val telefono: String?,
-    val direccion: String?
+    val password: String,
+    val rol: String
 )
 
 data class ActualizarUsuarioDTO(
-    val nombreCompleto: String?,
+    val nombre: String?,
     val email: String?,
-    val contrasena: String?,
-    val telefono: String?,
-    val direccion: String?
+    val password: String?,
+    val rol: String?,
+    val habilitado: Boolean?
 )
 
 data class LoginRequestDTO(
     val email: String,
-    val contrasena: String
+    val password: String
 )
 
 data class LoginResponseDTO(
     val id: Long,
-    val nombreCompleto: String,
+    val nombre: String,
     val email: String,
-    val rol: String,
-    val mensaje: String
+    val rol: String
 )
 
 // ==================== CARRITO ====================

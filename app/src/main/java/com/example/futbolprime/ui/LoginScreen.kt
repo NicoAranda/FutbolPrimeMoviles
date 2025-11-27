@@ -44,7 +44,7 @@ fun LoginScreen(
 
                 Toast.makeText(
                     context,
-                    "Bienvenido ${usuario.nombreCompleto}",
+                    "Bienvenido ${usuario.nombre}",
                     Toast.LENGTH_SHORT
                 ).show()
 
@@ -55,7 +55,7 @@ fun LoginScreen(
             }
             is LoginState.Error -> {
                 val mensaje = (loginState as LoginState.Error).mensaje
-                Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, mensaje, Toast.LENGTH_LONG).show()
                 viewModel.resetLoginState()
             }
             else -> { /* Idle o Loading */ }
@@ -77,8 +77,8 @@ fun LoginScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { viewModel.username.value = it },
-                label = { Text("Usuario / Mail") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Usuario") },
+                label = { Text("Correo Electrónico") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Email") },
                 isError = usernameError != null,
                 enabled = loginState !is LoginState.Loading,
                 modifier = Modifier.fillMaxWidth()
@@ -127,6 +127,35 @@ fun LoginScreen(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Text("Entrar")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Información de prueba (puedes quitarla después)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Text(
+                        "Credenciales de Prueba:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Email: juan@correo.cl",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "Contraseña: juan1234",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }
