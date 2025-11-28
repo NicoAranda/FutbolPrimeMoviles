@@ -8,7 +8,6 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -48,7 +47,6 @@ fun CarritoScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Verificar si hay usuario logueado
     val usuarioId = UserSessionManager.getUserId(context)
 
     // Redirigir a login si no hay sesión
@@ -66,7 +64,6 @@ fun CarritoScreen(
     val carrito by viewModel.carrito.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Permiso de notificaciones (Android 13+)
     val requestNotifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -139,7 +136,9 @@ fun CarritoScreen(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(carrito) { (producto, cantidad) ->
+                        items(carrito) { item ->
+                            val producto = item.producto
+                            val cantidad = item.cantidad
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 elevation = CardDefaults.cardElevation(4.dp)
@@ -180,7 +179,7 @@ fun CarritoScreen(
                                                 if (cantidad > 1) {
                                                     scope.launch {
                                                         viewModel.actualizarCantidad(
-                                                            itemId = producto.id.toLong(),
+                                                            itemId = item.itemId,
                                                             nuevaCantidad = cantidad - 1,
                                                             usuarioId = usuarioId
                                                         ) {}
@@ -200,7 +199,7 @@ fun CarritoScreen(
                                             IconButton(onClick = {
                                                 scope.launch {
                                                     viewModel.actualizarCantidad(
-                                                        itemId = producto.id.toLong(),
+                                                        itemId = item.itemId,
                                                         nuevaCantidad = cantidad + 1,
                                                         usuarioId = usuarioId
                                                     ) {}
@@ -213,11 +212,9 @@ fun CarritoScreen(
 
                                     IconButton(onClick = {
                                         scope.launch {
-                                            // Necesitamos el carritoId real de la API
-                                            // Por ahora usamos un placeholder
                                             viewModel.eliminarProducto(
-                                                carritoId = 1L, // TODO: Obtener ID real
-                                                productoId = producto.id.toLong(),
+                                                carritoId = viewModel.carritoId.value ?: 0L,
+                                                productoId = item.producto.id.toLong(),
                                                 usuarioId = usuarioId
                                             ) {
                                                 Toast.makeText(
@@ -241,7 +238,7 @@ fun CarritoScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    val total = carrito.sumOf { (producto, cantidad) -> producto.precio * cantidad }
+                    val total = carrito.sumOf { it.producto.precio * it.cantidad }
 
                     Text(
                         text = "Total: $${total}",
@@ -338,7 +335,6 @@ fun CarritoScreen(
                                             Toast.LENGTH_LONG
                                         ).show()
 
-                                        // Notificación
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                             if (puedeNotificar()) {
                                                 enviarNotificacion(context)
@@ -373,9 +369,6 @@ fun CarritoScreen(
     }
 }
 
-/**
- * Función para enviar la notificación de compra exitosa
- */
 fun enviarNotificacion(context: android.content.Context) {
     val intent = Intent(context, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

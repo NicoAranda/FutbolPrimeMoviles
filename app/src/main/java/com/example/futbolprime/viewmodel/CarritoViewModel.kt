@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.util.Log
+import com.example.futbolprime.model.CarritoItem
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.network.CrearPedidoDTO
 import com.example.futbolprime.network.CrearPedidoItemDTO
@@ -18,27 +19,24 @@ class CarritoViewModel : ViewModel() {
     private val apiService = RetrofitClient.apiService
     private val carritoRepo = CarritoRepository()
 
-    // Campos del formulario
     var nombre = mutableStateOf("")
     var email = mutableStateOf("")
-    var direccion = mutableStateOf("") // se mapeará a dirLinea1
+    var direccion = mutableStateOf("")
     var tarjeta = mutableStateOf("")
 
-    // Errores asociados
     var nombreError = mutableStateOf<String?>(null)
     var emailError = mutableStateOf<String?>(null)
     var direccionError = mutableStateOf<String?>(null)
     var tarjetaError = mutableStateOf<String?>(null)
 
-    // Estado del carrito: lista de Pair<Producto, cantidad>
-    private val _carrito = MutableStateFlow<List<Pair<Producto, Int>>>(emptyList())
-    val carrito: StateFlow<List<Pair<Producto, Int>>> = _carrito
+    private val _carrito = MutableStateFlow<List<CarritoItem>>(emptyList())
+    val carrito: StateFlow<List<CarritoItem>> = _carrito
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    // Guardamos el id real del carrito devuelto por backend (si existe)
     private val _carritoId = MutableStateFlow<Long?>(null)
+    val carritoId: StateFlow<Long?> = _carritoId
 
     fun cargarCarrito(usuarioId: Long) {
         viewModelScope.launch {
@@ -48,14 +46,9 @@ class CarritoViewModel : ViewModel() {
                 _carrito.value = items
 
                 val response = apiService.obtenerCarritoUsuario(usuarioId)
-                if (response.isSuccessful) {
-                    _carritoId.value = response.body()?.id
-                } else {
-                    Log.w("CarritoVM", "No se pudo obtener carritoId: ${response.code()} ${response.message()}")
-                    _carritoId.value = null
-                }
+                _carritoId.value = if (response.isSuccessful) response.body()?.id else null
             } catch (e: Exception) {
-                Log.e("CarritoVM", "Error cargarCarrito: ${e.message}", e)
+                e.printStackTrace()
                 _carrito.value = emptyList()
                 _carritoId.value = null
             } finally {
@@ -64,46 +57,22 @@ class CarritoViewModel : ViewModel() {
         }
     }
 
-    fun actualizarCantidad(itemId: Long, nuevaCantidad: Int, usuarioId: Long, onSuccess: () -> Unit = {}) {
+    fun actualizarCantidad(itemId: Long, nuevaCantidad: Int, usuarioId: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val exito = carritoRepo.actualizarCantidad(itemId, nuevaCantidad)
-                if (exito) {
-                    cargarCarrito(usuarioId)
-                    onSuccess()
-                } else {
-                    Log.w("CarritoVM", "actualizarCantidad: fallo en repo para itemId=$itemId")
-                }
-            } catch (e: Exception) {
-                Log.e("CarritoVM", "Exception actualizarCantidad: ${e.message}", e)
-            } finally {
-                _isLoading.value = false
+            val exito = carritoRepo.actualizarCantidad(itemId, nuevaCantidad)
+            if (exito) {
+                cargarCarrito(usuarioId)
+                onSuccess()
             }
         }
     }
 
-    fun eliminarProducto(carritoId: Long?, productoId: Long, usuarioId: Long, onSuccess: () -> Unit = {}) {
-        if (carritoId == null) {
-            Log.w("CarritoVM", "eliminarProducto: carritoId es null, intentando recargar")
-            cargarCarrito(usuarioId)
-            return
-        }
-
+    fun eliminarProducto(carritoId: Long, productoId: Long, usuarioId: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val exito = carritoRepo.eliminarDelCarrito(carritoId, productoId)
-                if (exito) {
-                    cargarCarrito(usuarioId)
-                    onSuccess()
-                } else {
-                    Log.w("CarritoVM", "eliminarProducto: fallo repo eliminar carritoId=$carritoId productoId=$productoId")
-                }
-            } catch (e: Exception) {
-                Log.e("CarritoVM", "Exception eliminarProducto: ${e.message}", e)
-            } finally {
-                _isLoading.value = false
+            val exito = carritoRepo.eliminarDelCarrito(carritoId, productoId)
+            if (exito) {
+                cargarCarrito(usuarioId)
+                onSuccess()
             }
         }
     }
@@ -129,10 +98,10 @@ class CarritoViewModel : ViewModel() {
                 }
 
                 // Mapear items del carrito a CrearPedidoItemDTO (incluyendo precioUnitSnap)
-                val itemsParaPedido = _carrito.value.map { (producto, cantidad) ->
+                val itemsParaPedido = _carrito.value.map { carritoItem ->
                     CrearPedidoItemDTO(
-                        productoId = producto.id.toLong(),
-                        cantidad = cantidad
+                        productoId = carritoItem.producto.id.toLong(),
+                        cantidad = carritoItem.cantidad
                     )
                 }
 

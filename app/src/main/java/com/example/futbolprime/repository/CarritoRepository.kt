@@ -42,7 +42,7 @@ class CarritoRepository {
     /**
      * Obtiene el carrito completo del usuario
      */
-    suspend fun obtenerCarrito(usuarioId: Long): List<Pair<Producto, Int>> {
+    suspend fun obtenerCarrito(usuarioId: Long): List<com.example.futbolprime.model.CarritoItem> {
         return try {
             val resp = apiService.obtenerCarritoUsuario(usuarioId)
             if (!resp.isSuccessful) {
@@ -51,32 +51,25 @@ class CarritoRepository {
             }
 
             val carritoDto: CarritoDTO = resp.body() ?: return emptyList()
-
-            val resultado = mutableListOf<Pair<Producto, Int>>()
+            val resultado = mutableListOf<com.example.futbolprime.model.CarritoItem>()
 
             for (item in carritoDto.items) {
                 val prodDto = item.producto ?: continue
 
-                // Si imagen nula/blank -> intentar obtener detalle por SKU (si hay)
+                // Si imagen nula -> intentar obtener por SKU (como ya lo tenías)
                 val finalProductoDto = if (prodDto.imagen.isNullOrBlank()) {
                     val sku = prodDto.sku
                     if (!sku.isNullOrBlank()) {
                         try {
                             val detalleResp = apiService.obtenerProductoPorSku(sku)
-                            if (detalleResp.isSuccessful) detalleResp.body() ?: prodDto
-                            else prodDto
+                            if (detalleResp.isSuccessful) detalleResp.body() ?: prodDto else prodDto
                         } catch (e: Exception) {
                             Log.w("CarritoRepo", "Error obtener por SKU='$sku': ${e.message}")
                             prodDto
                         }
-                    } else {
-                        prodDto
-                    }
-                } else {
-                    prodDto
-                }
+                    } else prodDto
+                } else prodDto
 
-                // Convertir finalProductoDto (ProductoDTO) a Producto local explícitamente
                 val producto = Producto(
                     id = (finalProductoDto.id ?: 0L).toInt(),
                     sku = finalProductoDto.sku ?: "",
@@ -86,11 +79,17 @@ class CarritoRepository {
                     color = finalProductoDto.color ?: "N/A",
                     stock = finalProductoDto.stock ?: 0,
                     marca = finalProductoDto.marcaNombre ?: "N/A",
-                    imagen = finalProductoDto.imagen // puede seguir siendo null
+                    imagen = finalProductoDto.imagen
                 )
 
                 val cantidad = item.cantidad ?: 1
-                resultado.add(Pair(producto, cantidad))
+                val itemId = item.id ?: 0L
+
+                resultado.add(com.example.futbolprime.model.CarritoItem(
+                    itemId = itemId,
+                    producto = producto,
+                    cantidad = cantidad
+                ))
             }
 
             resultado.toList()
