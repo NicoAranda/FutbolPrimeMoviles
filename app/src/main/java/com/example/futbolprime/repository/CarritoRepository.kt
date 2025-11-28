@@ -4,27 +4,35 @@ import android.util.Log
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.network.*
 import com.example.futbolprime.R
+import com.google.gson.Gson
 
-/**
- * CarritoRepository ahora consume la API REST
- * Requiere un usuarioId para gestionar el carrito
- */
 class CarritoRepository {
 
     private val apiService = RetrofitClient.apiService
 
     /**
      * Agrega un producto al carrito del usuario
+     * Ahora recibe productoId (Long) que es lo que espera el backend.
      */
-    suspend fun agregarAlCarrito(usuarioId: Long, productoSku: String, cantidad: Int = 1): Boolean {
+    suspend fun agregarAlCarrito(usuarioId: Long, productoId: Long, cantidad: Int = 1): Boolean {
         return try {
             val request = CrearCarritoItemDTO(
                 usuarioId = usuarioId,
-                productoSku = productoSku,
+                productoId = productoId,
                 cantidad = cantidad
             )
+
+            Log.d("CarritoRepo", "POST /api/carritos/item body: ${Gson().toJson(request)}")
+
             val response = apiService.agregarItemAlCarrito(request)
-            response.isSuccessful
+            if (response.isSuccessful) {
+                Log.d("CarritoRepository", "Agregar al carrito OK: ${Gson().toJson(response.body())}")
+                true
+            } else {
+                val err = response.errorBody()?.string()
+                Log.e("CarritoRepository", "Agregar al carrito FALLÓ: code=${response.code()} body=$err")
+                false
+            }
         } catch (e: Exception) {
             Log.e("CarritoRepository", "Error agregando al carrito: ${e.message}", e)
             false
@@ -94,20 +102,21 @@ class CarritoRepository {
     }
 
     /**
-     * Crea un objeto Producto desde un CarritoItemDTO
+     * Crea un objeto Producto desde un CarritoItemDTO (mapeo correcto)
      */
     private fun crearProductoDesdeItem(item: CarritoItemDTO): Producto {
+        val p = item.producto
         return Producto(
-            id = item.id.toInt(),
-            sku = item.productoSku,
-            nombre = item.productoNombre,
-            precio = item.precioUnitario.toInt(),
-            talla = 0, // No disponible en el DTO del carrito
-            color = "N/A",
-            stock = 0,
-            marca = "N/A",
+            id = p.id.toInt(),
+            sku = p.sku ?: "",
+            nombre = p.nombre ?: "",
+            precio = p.precio ?: 0,
+            talla = p.talla?.toIntOrNull() ?: 0,
+            color = p.color ?: "N/A",
+            stock = p.stock ?: 0,
+            marca = p.marcaNombre ?: "N/A",
             descripcion = "",
-            imagen = asignarImagenPorSku(item.productoSku)
+            imagen = p.imagen // cadena con URL ya normalizada por ProductoRepository
         )
     }
 

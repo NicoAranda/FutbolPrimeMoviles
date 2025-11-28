@@ -30,7 +30,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.futbolprime.MainActivity
+import com.example.futbolprime.R
 import com.example.futbolprime.navigation.Screen
 import com.example.futbolprime.ui.components.Header
 import com.example.futbolprime.utils.NotificationUtils
@@ -148,13 +150,15 @@ fun CarritoScreen(
                                         .fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Image(
-                                        painter = painterResource(id = producto.imagen),
+                                    AsyncImage(
+                                        model = producto.imagen, // String? -> URL o null
                                         contentDescription = producto.nombre,
                                         modifier = Modifier
-                                            .size(80.dp)
+                                            .size(120.dp)
                                             .padding(end = 10.dp),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Crop,
+                                        placeholder = painterResource(id = com.example.futbolprime.R.drawable.ic_launcher_foreground), // fallback local
+                                        error = painterResource(id = R.drawable.ic_launcher_foreground)        // fallback si falla descarga
                                     )
 
                                     Column(modifier = Modifier.weight(1f)) {

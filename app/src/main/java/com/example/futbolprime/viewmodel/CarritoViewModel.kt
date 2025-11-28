@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.network.CrearPedidoDTO
+import com.example.futbolprime.network.CrearPedidoItemDTO
 import com.example.futbolprime.network.RetrofitClient
 import com.example.futbolprime.repository.CarritoRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,7 @@ class CarritoViewModel : ViewModel() {
     // Campos del formulario
     var nombre = mutableStateOf("")
     var email = mutableStateOf("")
-    var direccion = mutableStateOf("")
+    var direccion = mutableStateOf("") // aquí uso esta cadena como dirLinea1
     var tarjeta = mutableStateOf("")
 
     // Errores asociados
@@ -28,7 +29,7 @@ class CarritoViewModel : ViewModel() {
     var direccionError = mutableStateOf<String?>(null)
     var tarjetaError = mutableStateOf<String?>(null)
 
-    // Estado del carrito
+    // Estado del carrito: lista de Pair<Producto, cantidad>
     private val _carrito = MutableStateFlow<List<Pair<Producto, Int>>>(emptyList())
     val carrito: StateFlow<List<Pair<Producto, Int>>> = _carrito
 
@@ -51,9 +52,12 @@ class CarritoViewModel : ViewModel() {
                 val response = apiService.obtenerCarritoUsuario(usuarioId)
                 if (response.isSuccessful) {
                     _carritoId.value = response.body()?.id
+                } else {
+                    _carritoId.value = null
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                _carritoId.value = null
             } finally {
                 _isLoading.value = false
             }
@@ -88,6 +92,9 @@ class CarritoViewModel : ViewModel() {
 
     /**
      * Finaliza la compra creando un pedido
+     *
+     * Construye CrearPedidoDTO a partir del carrito local.
+     * Observación: mapea nombre -> dirNombre y direccion -> dirLinea1; otros campos se envían vacíos.
      */
     fun finalizarCompra(usuarioId: Long, onSuccess: () -> Unit, onError: (String) -> Unit) {
         if (!validarCampos()) {
@@ -101,26 +108,46 @@ class CarritoViewModel : ViewModel() {
                 val carritoIdActual = _carritoId.value
                 if (carritoIdActual == null) {
                     onError("No se pudo obtener el carrito")
+                    _isLoading.value = false
                     return@launch
                 }
 
-                // Crear el pedido
+                // Mapear los items del carrito actual a CrearPedidoItemDTO
+                val itemsParaPedido = _carrito.value.map { (producto, cantidad) ->
+                    CrearPedidoItemDTO(
+                        productoId = producto.id.toLong(),
+                        cantidad = cantidad
+                    )
+                }
+
+                // Construir el DTO que pide el backend
                 val pedidoRequest = CrearPedidoDTO(
                     usuarioId = usuarioId,
-                    carritoId = carritoIdActual,
-                    direccionEnvio = direccion.value,
-                    metodoPago = "Tarjeta de crédito"
+                    items = itemsParaPedido,
+                    envio = 0,           // ajustar si corresponde
+                    descuento = 0,       // ajustar si corresponde
+                    dirNombre = nombre.value.ifBlank { "" },
+                    dirLinea1 = direccion.value.ifBlank { "" },
+                    dirLinea2 = "",
+                    dirCiudad = "",
+                    dirRegion = "",
+                    dirZip = "",
+                    dirPais = "",
+                    dirTelefono = ""
                 )
 
                 val response = apiService.crearPedido(pedidoRequest)
                 if (response.isSuccessful) {
-                    // Vaciar el carrito
+                    // Vaciar el carrito en backend y UI
                     carritoRepo.vaciarCarrito(carritoIdActual)
                     _carrito.value = emptyList()
+                    _carritoId.value = null
                     limpiarCampos()
                     onSuccess()
                 } else {
-                    onError("Error al procesar el pedido: ${response.message()}")
+                    // Capturar cuerpo de error si existe
+                    val err = response.errorBody()?.string()
+                    onError("Error al procesar el pedido: ${response.message()}${if (err != null) " - $err" else ""}")
                 }
             } catch (e: Exception) {
                 onError("Error de conexión: ${e.message}")

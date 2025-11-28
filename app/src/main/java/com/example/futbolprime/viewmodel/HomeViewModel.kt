@@ -64,19 +64,4 @@ class HomeViewModel : ViewModel() {
     /**
      * Busca productos por tipo
      */
-    fun buscarPorTipo(tipo: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-
-            try {
-                val productosObtenidos = repository.obtenerProductosPorTipo(tipo)
-                _productos.value = productosObtenidos
-            } catch (e: Exception) {
-                _error.value = "Error al buscar productos: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
 }

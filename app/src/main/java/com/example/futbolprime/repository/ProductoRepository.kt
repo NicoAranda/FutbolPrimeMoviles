@@ -6,17 +6,11 @@ import com.example.futbolprime.network.ProductoDTO
 import com.example.futbolprime.network.RetrofitClient
 import com.example.futbolprime.R
 
-/**
- * ProductoRepository ahora consume datos desde la API REST
- * en lugar de SQLite local
- */
 class ProductoRepository {
 
     private val apiService = RetrofitClient.apiService
+    private val BASE_URL = "http://10.0.2.2:8080" // emulador -> backend local
 
-    /**
-     * Obtiene todos los productos desde la API
-     */
     suspend fun obtenerProductos(): List<Producto> {
         return try {
             val response = apiService.obtenerTodosLosProductos()
@@ -32,9 +26,6 @@ class ProductoRepository {
         }
     }
 
-    /**
-     * Obtiene un producto específico por SKU
-     */
     suspend fun obtenerProductoPorSku(sku: String): Producto? {
         return try {
             val response = apiService.obtenerProductoPorSku(sku)
@@ -49,9 +40,6 @@ class ProductoRepository {
         }
     }
 
-    /**
-     * Obtiene productos filtrados por tipo
-     */
     suspend fun obtenerProductosPorTipo(tipo: String): List<Producto> {
         return try {
             val response = apiService.obtenerProductosPorTipo(tipo)
@@ -66,35 +54,28 @@ class ProductoRepository {
         }
     }
 
-    /**
-     * Convierte ProductoDTO de la API a Producto del modelo local
-     * Nota: Las imágenes ahora pueden venir de URL o asignar locales por defecto
-     */
     private fun ProductoDTO.toProducto(): Producto {
-        return Producto(
-            id = sku.hashCode(), // Usamos hash del SKU como ID temporal
-            sku = sku,
-            nombre = nombre,
-            precio = precio.toInt(),
-            talla = talla?.toIntOrNull() ?: 0,
-            color = color ?: "N/A",
-            stock = stock,
-            marca = "Marca genérica", // Podrías hacer otra consulta para obtener el nombre de la marca
-            descripcion = descripcion ?: "",
-            imagen = asignarImagenLocal(sku) // Función helper para asignar imágenes locales
-        )
-    }
-
-    /**
-     * Asigna una imagen local según el SKU
-     * Puedes expandir esto o cargar imágenes desde URL usando Coil/Glide
-     */
-    private fun asignarImagenLocal(sku: String): Int {
-        return when (sku) {
-            "SKU001" -> R.drawable.balonadidas
-            "SKU002" -> R.drawable.poleramilan
-            "SKU003" -> R.drawable.zapatillasnike
-            else -> R.drawable.ic_launcher_foreground
+        // Normalizar imagen a URL absoluta si viene relativa
+        val rawImagen = this.imagen
+        val imagenUrl = rawImagen?.let {
+            if (it.startsWith("http")) it
+            else "$BASE_URL${if (it.startsWith("/")) "" else "/"}$it"
         }
+
+        // Log para depuración
+        Log.d("ProductoRepo", "DTO -> id=${this.id} sku=${this.sku} imagenRaw='$rawImagen' imagenUrl='$imagenUrl'")
+
+        return Producto(
+            id = this.id.toInt(),            // <-- usa el ID real que viene del backend
+            sku = this.sku ?: "",
+            nombre = this.nombre ?: "",
+            precio = this.precio ?: 0,
+            talla = this.talla?.toIntOrNull() ?: 0,
+            color = this.color ?: "N/A",
+            stock = this.stock ?: 0,
+            marca = this.marcaNombre ?: "N/A",
+            descripcion = "",                // o this.descripcion ?: ""
+            imagen = imagenUrl               // String? con URL absoluta o null
+        )
     }
 }

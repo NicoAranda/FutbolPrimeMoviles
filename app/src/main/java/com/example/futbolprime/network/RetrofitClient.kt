@@ -6,23 +6,15 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-/**
- * Singleton que configura y provee la instancia de Retrofit
- * para comunicarse con la API de Fútbol Prime
- */
 object RetrofitClient {
 
-    // 🔹 Cambia esta URL según tu configuración
-    // Para emulador Android: http://10.0.2.2:8080/
-    // Para dispositivo físico: http://TU_IP_LOCAL:8080/
+    // Ajusta si usas emulador / dispositivo físico
     private const val BASE_URL = "http://10.0.2.2:8080/"
 
-    // Logging interceptor para debug
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    // Cliente HTTP con configuraciones personalizadas
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -30,8 +22,7 @@ object RetrofitClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    // Instancia de Retrofit
-    private val retrofit: Retrofit by lazy {
+    val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
@@ -39,7 +30,6 @@ object RetrofitClient {
             .build()
     }
 
-    // API Service
     val apiService: ApiService by lazy {
         retrofit.create(ApiService::class.java)
     }

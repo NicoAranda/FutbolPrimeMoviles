@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,10 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.repository.CarritoRepository
 import com.example.futbolprime.utils.UserSessionManager
 import kotlinx.coroutines.launch
+import android.util.Log
+import com.example.futbolprime.R
 
 @Composable
 fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
@@ -48,14 +50,16 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(12.dp)
         ) {
-            // Imagen del producto
-            Image(
-                painter = painterResource(id = producto.imagen),
+            // Imagen del producto (usa URL o null)
+            AsyncImage(
+                model = producto.imagen,
                 contentDescription = producto.nombre,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentScale = ContentScale.Crop
+                    .size(120.dp)
+                    .padding(end = 10.dp),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                error = painterResource(id = R.drawable.ic_launcher_foreground)
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -70,7 +74,6 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Marca
             Text(
                 text = "Marca: ${producto.marca}",
                 color = MaterialTheme.colorScheme.primary,
@@ -79,7 +82,6 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Precio
             Text(
                 text = "Precio: $${producto.precio}",
                 fontWeight = FontWeight.SemiBold,
@@ -88,7 +90,6 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Detalles adicionales
             Text(
                 text = "Talla: ${producto.talla}  |  Color: ${producto.color}",
                 fontSize = 13.sp
@@ -96,7 +97,6 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // Stock disponible
             Text(
                 text = "Stock disponible: ${producto.stock}",
                 fontSize = 13.sp,
@@ -108,29 +108,34 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Botón para agregar al carrito
             Button(
                 onClick = {
                     scope.launch {
                         isLoading = true
 
-                        // Obtener el ID del usuario logueado
                         val usuarioId = UserSessionManager.getUserId(context)
 
                         if (usuarioId == -1L || !UserSessionManager.isLoggedIn(context)) {
-                            Toast.makeText(
-                                context,
-                                "Debes iniciar sesión para agregar al carrito",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "Debes iniciar sesión para agregar al carrito", Toast.LENGTH_SHORT).show()
                             isLoading = false
                             return@launch
                         }
 
-                        // Agregar al carrito usando la API
+                        // LOG: para verificar que el id es correcto
+                        Log.d("ProductoCard", "CLICK agregar -> producto.id=${producto.id} sku=${producto.sku} nombre=${producto.nombre}")
+
+                        // Validar id
+                        if (producto.id <= 0) {
+                            Log.e("ProductoCard", "ID de producto inválido: ${producto.id} — no se enviará")
+                            Toast.makeText(context, "Error: id de producto inválido", Toast.LENGTH_SHORT).show()
+                            isLoading = false
+                            return@launch
+                        }
+
+                        // Agregar al carrito usando el ID real del producto
                         val exito = carritoRepo.agregarAlCarrito(
                             usuarioId = usuarioId,
-                            productoSku = producto.sku,
+                            productoId = producto.id.toLong(),
                             cantidad = 1
                         )
 
@@ -138,17 +143,9 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
 
                         if (exito) {
                             vibrar(context, 120)
-                            Toast.makeText(
-                                context,
-                                "Producto agregado al carrito",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "Producto agregado al carrito", Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(
-                                context,
-                                "Error al agregar al carrito. Verifica tu conexión.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "Error al agregar al carrito. Verifica tu conexión.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
@@ -158,24 +155,17 @@ fun ProductoCard(producto: Producto, modifier: Modifier = Modifier) {
                 enabled = !isLoading && producto.stock > 0
             ) {
                 Text(
-                    text = if (isLoading) "Agregando..."
-                    else if (producto.stock > 0) "Agregar al carrito"
-                    else "Sin stock"
+                    text = if (isLoading) "Agregando..." else if (producto.stock > 0) "Agregar al carrito" else "Sin stock"
                 )
             }
         }
     }
 }
 
-/**
- * Función auxiliar para generar vibración controlada
- */
 private fun vibrar(context: Context, duracion: Long) {
     val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(duracion, VibrationEffect.DEFAULT_AMPLITUDE)
-        )
+        vibrator.vibrate(VibrationEffect.createOneShot(duracion, VibrationEffect.DEFAULT_AMPLITUDE))
     } else {
         @Suppress("DEPRECATION")
         vibrator.vibrate(duracion)
