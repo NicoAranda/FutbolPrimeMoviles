@@ -44,22 +44,63 @@ class CarritoRepository {
      */
     suspend fun obtenerCarrito(usuarioId: Long): List<Pair<Producto, Int>> {
         return try {
-            val response = apiService.obtenerCarritoUsuario(usuarioId)
-            if (response.isSuccessful) {
-                val carritoDTO = response.body()
-                carritoDTO?.items?.map { item ->
-                    val producto = crearProductoDesdeItem(item)
-                    Pair(producto, item.cantidad)
-                } ?: emptyList()
-            } else {
-                Log.e("CarritoRepository", "Error: ${response.code()}")
-                emptyList()
+            val resp = apiService.obtenerCarritoUsuario(usuarioId)
+            if (!resp.isSuccessful) {
+                Log.e("CarritoRepo", "obtenerCarrito error: ${resp.code()} ${resp.message()}")
+                return emptyList()
             }
+
+            val carritoDto: CarritoDTO = resp.body() ?: return emptyList()
+
+            val resultado = mutableListOf<Pair<Producto, Int>>()
+
+            for (item in carritoDto.items) {
+                val prodDto = item.producto ?: continue
+
+                // Si imagen nula/blank -> intentar obtener detalle por SKU (si hay)
+                val finalProductoDto = if (prodDto.imagen.isNullOrBlank()) {
+                    val sku = prodDto.sku
+                    if (!sku.isNullOrBlank()) {
+                        try {
+                            val detalleResp = apiService.obtenerProductoPorSku(sku)
+                            if (detalleResp.isSuccessful) detalleResp.body() ?: prodDto
+                            else prodDto
+                        } catch (e: Exception) {
+                            Log.w("CarritoRepo", "Error obtener por SKU='$sku': ${e.message}")
+                            prodDto
+                        }
+                    } else {
+                        prodDto
+                    }
+                } else {
+                    prodDto
+                }
+
+                // Convertir finalProductoDto (ProductoDTO) a Producto local explícitamente
+                val producto = Producto(
+                    id = (finalProductoDto.id ?: 0L).toInt(),
+                    sku = finalProductoDto.sku ?: "",
+                    nombre = finalProductoDto.nombre ?: "",
+                    precio = finalProductoDto.precio ?: 0,
+                    talla = finalProductoDto.talla?.toIntOrNull() ?: 0,
+                    color = finalProductoDto.color ?: "N/A",
+                    stock = finalProductoDto.stock ?: 0,
+                    marca = finalProductoDto.marcaNombre ?: "N/A",
+                    imagen = finalProductoDto.imagen // puede seguir siendo null
+                )
+
+                val cantidad = item.cantidad ?: 1
+                resultado.add(Pair(producto, cantidad))
+            }
+
+            resultado.toList()
         } catch (e: Exception) {
-            Log.e("CarritoRepository", "Exception obteniendo carrito: ${e.message}", e)
+            Log.e("CarritoRepo", "Exception obtenerCarrito: ${e.message}", e)
             emptyList()
         }
     }
+
+
 
     /**
      * Actualiza la cantidad de un item en el carrito

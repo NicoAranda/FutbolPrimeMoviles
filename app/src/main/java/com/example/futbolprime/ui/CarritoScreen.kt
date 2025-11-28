@@ -151,14 +151,14 @@ fun CarritoScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     AsyncImage(
-                                        model = producto.imagen, // String? -> URL o null
+                                        model = producto.imagen,
                                         contentDescription = producto.nombre,
                                         modifier = Modifier
                                             .size(120.dp)
                                             .padding(end = 10.dp),
                                         contentScale = ContentScale.Crop,
-                                        placeholder = painterResource(id = com.example.futbolprime.R.drawable.ic_launcher_foreground), // fallback local
-                                        error = painterResource(id = R.drawable.ic_launcher_foreground)        // fallback si falla descarga
+                                        placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                                        error = painterResource(id = R.drawable.ic_launcher_foreground)
                                     )
 
                                     Column(modifier = Modifier.weight(1f)) {
