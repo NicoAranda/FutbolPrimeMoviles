@@ -14,6 +14,7 @@ import androidx.navigation.NavController
 import com.example.futbolprime.ui.components.Header
 import com.example.futbolprime.ui.components.ProductoCard
 import com.example.futbolprime.viewmodel.HomeViewModel
+import com.example.futbolprime.viewmodel.UserViewModel
 
 /**
  * `ProductosScreen` muestra la lista de productos disponibles.
@@ -22,13 +23,14 @@ import com.example.futbolprime.viewmodel.HomeViewModel
 @Composable
 fun ProductosScreen(
     navController: NavController,
+    userViewModel: UserViewModel,
     viewModel: HomeViewModel = viewModel()
 ) {
     val productosState = viewModel.productos.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
-        Header(navController = navController)
+        Header(navController = navController, userViewModel)
 
         // Título
         Text(

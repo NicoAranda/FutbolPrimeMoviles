@@ -25,8 +25,8 @@ object UserSessionManager {
      */
     fun saveUserSession(context: Context, usuario: LoginResponseDTO) {
         getPrefs(context).edit().apply {
-            putLong(KEY_USER_ID, usuario.id)
-            putString(KEY_USER_NAME, usuario.nombre)  // ✅ CAMBIO: nombreCompleto → nombre
+            putLong(KEY_USER_ID, usuario.id.toLong()) // ✅ Convertir Int a Long
+            putString(KEY_USER_NAME, usuario.nombre)
             putString(KEY_USER_EMAIL, usuario.email)
             putString(KEY_USER_ROL, usuario.rol)
             putBoolean(KEY_IS_LOGGED_IN, true)
@@ -38,7 +38,7 @@ object UserSessionManager {
      * Obtiene el ID del usuario logueado
      */
     fun getUserId(context: Context): Long {
-        return getPrefs(context).getLong(KEY_USER_ID, -1L)
+        return getPrefs(context).getLong(KEY_USER_ID, -1L) // ✅ Mantener como Long
     }
 
     /**
@@ -84,7 +84,7 @@ object UserSessionManager {
 
         return UserInfo(
             id = getUserId(context),
-            nombre = getUserName(context) ?: "",  // ✅ CAMBIO: nombreCompleto → nombre
+            nombre = getUserName(context) ?: "",
             email = getUserEmail(context) ?: "",
             rol = getUserRol(context) ?: ""
         )
@@ -95,8 +95,8 @@ object UserSessionManager {
  * Data class para representar la información del usuario
  */
 data class UserInfo(
-    val id: Long,
-    val nombre: String,  // ✅ CAMBIO: nombreCompleto → nombre
+    val id: Long, // ✅ Mantener como Long para consistencia con la API
+    val nombre: String,
     val email: String,
     val rol: String
 )

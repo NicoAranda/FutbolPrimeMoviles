@@ -14,6 +14,7 @@ import androidx.navigation.NavController
 import com.example.futbolprime.R
 import com.example.futbolprime.navigation.Screen
 import com.example.futbolprime.ui.components.Header
+import com.example.futbolprime.viewmodel.UserViewModel
 
 /**
  * Pantalla de inicio de la aplicación.
@@ -21,12 +22,12 @@ import com.example.futbolprime.ui.components.Header
  * para acceder a los productos o iniciar sesión.
  */
 @Composable
-fun InicioScreen(navController: NavController) {
+fun InicioScreen(navController: NavController, userViewModel: UserViewModel) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
         // 🔹 Header fijo arriba, sin padding
-        Header(navController = navController)
+        Header(navController = navController, userViewModel)
 
         // 🔹 Contenido con padding y centrado
         Column(

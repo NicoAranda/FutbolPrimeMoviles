@@ -73,7 +73,7 @@ data class LoginRequestDTO(
 )
 
 data class LoginResponseDTO(
-    val id: Long,
+    val id: Int,
     val nombre: String,
     val email: String,
     val rol: String

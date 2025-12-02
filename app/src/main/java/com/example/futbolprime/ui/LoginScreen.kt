@@ -14,17 +14,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.futbolprime.data.SessionManager
 import com.example.futbolprime.navigation.Screen
 import com.example.futbolprime.ui.components.Header
-import com.example.futbolprime.utils.UserSessionManager
 import com.example.futbolprime.viewmodel.*
 
 @Composable
 fun LoginScreen(
     navController: NavController,
-    viewModel: LoginViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    userViewModel: UserViewModel,
+    sessionManager: SessionManager
 ) {
     val context = LocalContext.current
+
+    // ✅ Crear LoginViewModel con sessionManager verificado
+    val viewModel = remember(sessionManager) {
+        LoginViewModel(sessionManager)
+    }
+
     val loginState by viewModel.loginState.collectAsState()
 
     val username = viewModel.username.value
@@ -39,8 +46,11 @@ fun LoginScreen(
             is LoginState.Success -> {
                 val usuario = (loginState as LoginState.Success).usuario
 
-                // 🔹 IMPORTANTE: Guardar la sesión del usuario
-                UserSessionManager.saveUserSession(context, usuario)
+                // ✅ Guardar sesión usando email como token
+                userViewModel.login(
+                    token = usuario.email,
+                    nombre = usuario.nombre
+                )
 
                 Toast.makeText(
                     context,
@@ -53,17 +63,23 @@ fun LoginScreen(
                 }
                 viewModel.resetLoginState()
             }
+
             is LoginState.Error -> {
-                val mensaje = (loginState as LoginState.Error).mensaje
-                Toast.makeText(context, mensaje, Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    (loginState as LoginState.Error).mensaje,
+                    Toast.LENGTH_LONG
+                ).show()
                 viewModel.resetLoginState()
             }
-            else -> { /* Idle o Loading */ }
+
+            else -> Unit
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Header(navController = navController)
+
+        Header(navController = navController, userViewModel)
 
         Column(
             modifier = Modifier
@@ -74,6 +90,7 @@ fun LoginScreen(
             Text("Iniciar Sesión", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
 
+            // EMAIL
             OutlinedTextField(
                 value = username,
                 onValueChange = { viewModel.username.value = it },
@@ -83,15 +100,17 @@ fun LoginScreen(
                 enabled = loginState !is LoginState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (usernameError != null)
+            if (usernameError != null) {
                 Text(
                     usernameError,
                     color = MaterialTheme.colorScheme.error,
-                    fontSize = MaterialTheme.typography.bodySmall.fontSize
+                    style = MaterialTheme.typography.bodySmall
                 )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // PASSWORD
             OutlinedTextField(
                 value = password,
                 onValueChange = { viewModel.password.value = it },
@@ -102,59 +121,50 @@ fun LoginScreen(
                 enabled = loginState !is LoginState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (passwordError != null)
+            if (passwordError != null) {
                 Text(
                     passwordError,
                     color = MaterialTheme.colorScheme.error,
-                    fontSize = MaterialTheme.typography.bodySmall.fontSize
+                    style = MaterialTheme.typography.bodySmall
                 )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Mostrar indicador de carga
+            // LOADING
             if (loginState is LoginState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.padding(16.dp))
             }
 
+            // BOTÓN LOGIN
             Button(
                 onClick = { viewModel.login() },
                 enabled = loginState !is LoginState.Loading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.Login,
-                    contentDescription = "Entrar",
-                    modifier = Modifier.padding(end = 8.dp)
-                )
+                Icon(Icons.Default.Login, contentDescription = "Entrar")
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Entrar")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Información de prueba (puedes quitarla después)
+            // INFO DE PRUEBA
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(12.dp)
-                ) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         "Credenciales de Prueba:",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Email: juan@correo.cl",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        "Contraseña: juan1234",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Email: juan@correo.cl", style = MaterialTheme.typography.bodySmall)
+                    Text("Contraseña: juan1234", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
+import com.example.futbolprime.data.SessionManager
 import com.example.futbolprime.network.LoginRequestDTO
 import com.example.futbolprime.network.LoginResponseDTO
 import com.example.futbolprime.network.RetrofitClient
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(private val sessionManager: SessionManager) : ViewModel() {
 
     private val apiService = RetrofitClient.apiService
 
@@ -21,11 +22,9 @@ class LoginViewModel : ViewModel() {
     var usernameError = mutableStateOf<String?>(null)
     var passwordError = mutableStateOf<String?>(null)
 
-    // Estado para manejar el login
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState
 
-    // Usuario logueado
     private val _usuarioLogueado = MutableStateFlow<LoginResponseDTO?>(null)
     val usuarioLogueado: StateFlow<LoginResponseDTO?> = _usuarioLogueado
 
@@ -45,9 +44,6 @@ class LoginViewModel : ViewModel() {
         return valido
     }
 
-    /**
-     * Realiza el login usando la API
-     */
     fun login() {
         if (!validarCampos()) return
 
@@ -57,51 +53,40 @@ class LoginViewModel : ViewModel() {
             try {
                 val request = LoginRequestDTO(
                     email = username.value,
-                    password = password.value  // ✅ CORREGIDO: Ahora usa "password"
+                    password = password.value
                 )
-
-                // 🔹 LOG: Request que se está enviando
-                Log.d("LoginViewModel", "Intentando login con:")
-                Log.d("LoginViewModel", "Email: ${request.email}")
-                Log.d("LoginViewModel", "Contraseña length: ${request.password.length}")
 
                 val response = apiService.login(request)
 
-                // 🔹 LOG: Response completo
-                Log.d("LoginViewModel", "Response code: ${response.code()}")
-                Log.d("LoginViewModel", "Response message: ${response.message()}")
-                Log.d("LoginViewModel", "Response isSuccessful: ${response.isSuccessful}")
-
                 if (response.isSuccessful && response.body() != null) {
                     val loginResponse = response.body()!!
+
+                    // ✅ GUARDAR SESIÓN usando email como token
+                    sessionManager.saveSession(
+                        token = loginResponse.email, // Usar email como identificador
+                        nombre = loginResponse.nombre
+                    )
+
                     _usuarioLogueado.value = loginResponse
                     _loginState.value = LoginState.Success(loginResponse)
-                    Log.d("LoginViewModel", "Login exitoso: ${loginResponse.nombre}")
-                } else {
-                    // Intentar leer el error del backend
-                    val errorBody = response.errorBody()?.string()
-                    Log.e("LoginViewModel", "Error body: $errorBody")
 
+                    Log.d("LoginViewModel", "Login exitoso: ${loginResponse.nombre}")
+
+                } else {
                     val errorMsg = when (response.code()) {
                         401 -> "Email o contraseña incorrectos"
-                        400 -> "Datos inválidos. Verifica el email y contraseña"
+                        400 -> "Datos inválidos"
                         404 -> "Usuario no encontrado"
-                        500 -> "Error en el servidor"
-                        else -> "Error: ${response.code()} - ${response.message()}"
+                        else -> "Error: ${response.code()}"
                     }
-                    Log.e("LoginViewModel", "Login fallido: $errorMsg")
                     _loginState.value = LoginState.Error(errorMsg)
+                    Log.e("LoginViewModel", "Error en login: $errorMsg")
                 }
+
             } catch (e: Exception) {
-                Log.e("LoginViewModel", "Excepción en login: ${e.message}", e)
-                val errorMsg = when {
-                    e.message?.contains("Unable to resolve host") == true ->
-                        "No se puede conectar al servidor. Verifica que la API esté corriendo."
-                    e.message?.contains("Failed to connect") == true ->
-                        "Error de conexión. Verifica la URL de la API."
-                    else -> "Error de conexión: ${e.message}"
-                }
+                val errorMsg = "Error de conexión: ${e.message}"
                 _loginState.value = LoginState.Error(errorMsg)
+                Log.e("LoginViewModel", "Excepción en login", e)
             }
         }
     }
@@ -111,9 +96,6 @@ class LoginViewModel : ViewModel() {
     }
 }
 
-/**
- * Estados posibles del login
- */
 sealed class LoginState {
     object Idle : LoginState()
     object Loading : LoginState()

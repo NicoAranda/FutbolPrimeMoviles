@@ -37,11 +37,13 @@ import com.example.futbolprime.ui.components.Header
 import com.example.futbolprime.utils.NotificationUtils
 import com.example.futbolprime.utils.UserSessionManager
 import com.example.futbolprime.viewmodel.CarritoViewModel
+import com.example.futbolprime.viewmodel.UserViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun CarritoScreen(
     navController: NavHostController,
+    userViewModel: UserViewModel,
     viewModel: CarritoViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val context = LocalContext.current
@@ -86,7 +88,7 @@ fun CarritoScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Header(navController = navController)
+        Header(navController = navController, userViewModel)
 
         if (isLoading) {
             Box(
