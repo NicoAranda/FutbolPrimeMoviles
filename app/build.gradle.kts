@@ -22,10 +22,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../keystore/futbolprime.jks")
-            storePassword = "tu_password_aqui"
-            keyAlias = "futbolprime_key"
-            keyPassword = "tu_key_password_aqui"
+            storeFile = file("keystore/futbolprime.jks")
+            storePassword = "Nico.2005"
+            keyAlias = "FutbolPrime"
+            keyPassword = "Nico.2005"
         }
     }
 
