@@ -13,7 +13,7 @@ class UserViewModel(private val sessionManager: SessionManager) : ViewModel() {
     private val _nombre = MutableLiveData<String?>(sessionManager.getNombre())
     val nombre: LiveData<String?> = _nombre
 
-    // ✅ Método para verificar si hay sesión activa
+    //Método para verificar si hay sesión activa
     fun isLoggedIn(): Boolean {
         return sessionManager.isLoggedIn()
     }
@@ -30,7 +30,7 @@ class UserViewModel(private val sessionManager: SessionManager) : ViewModel() {
         _nombre.value = null
     }
 
-    // ✅ Método para refrescar el estado desde SessionManager
+    //Método para refrescar el estado desde SessionManager
     fun refreshSession() {
         _token.value = sessionManager.getToken()
         _nombre.value = sessionManager.getNombre()
