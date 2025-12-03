@@ -3,10 +3,7 @@ package com.example.futbolprime.viewmodel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asLiveData
-import androidx.lifecycle.viewModelScope
 import com.example.futbolprime.data.SessionManager
-import kotlinx.coroutines.launch
 
 class UserViewModel(private val sessionManager: SessionManager) : ViewModel() {
 
@@ -15,6 +12,11 @@ class UserViewModel(private val sessionManager: SessionManager) : ViewModel() {
 
     private val _nombre = MutableLiveData<String?>(sessionManager.getNombre())
     val nombre: LiveData<String?> = _nombre
+
+    // ✅ Método para verificar si hay sesión activa
+    fun isLoggedIn(): Boolean {
+        return sessionManager.isLoggedIn()
+    }
 
     fun login(token: String, nombre: String) {
         sessionManager.saveSession(token, nombre)
@@ -26,5 +28,11 @@ class UserViewModel(private val sessionManager: SessionManager) : ViewModel() {
         sessionManager.clearSession()
         _token.value = null
         _nombre.value = null
+    }
+
+    // ✅ Método para refrescar el estado desde SessionManager
+    fun refreshSession() {
+        _token.value = sessionManager.getToken()
+        _nombre.value = sessionManager.getNombre()
     }
 }

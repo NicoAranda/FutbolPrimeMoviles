@@ -10,13 +10,25 @@ import com.example.futbolprime.data.SessionManager
 import com.example.futbolprime.navigation.AppNavigation
 import com.example.futbolprime.ui.theme.FutbolPrimeTheme
 import com.example.futbolprime.utils.NotificationUtils
+import com.example.futbolprime.utils.UserSessionManager
 import com.example.futbolprime.viewmodel.UserViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         val sessionManager = SessionManager(applicationContext)
         val userViewModel = UserViewModel(sessionManager)
+
+        // ✅ Restaurar sesión si existe
+        val userInfo = UserSessionManager.getUserInfo(applicationContext)
+        if (userInfo != null) {
+            userViewModel.login(
+                token = userInfo.email,
+                nombre = userInfo.nombre
+            )
+        }
+
         setContent {
             FutbolPrimeTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

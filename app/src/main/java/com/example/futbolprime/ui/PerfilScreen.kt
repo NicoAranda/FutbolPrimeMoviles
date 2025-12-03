@@ -24,17 +24,18 @@ import com.example.futbolprime.viewmodel.UserViewModel
 fun PerfilScreen(navController: NavController, userViewModel: UserViewModel) {
     val context = LocalContext.current
 
-    // Obtener información del usuario desde SharedPreferences
-    val userInfo = UserSessionManager.getUserInfo(context)
+    // ✅ Obtener información del usuario desde UserSessionManager
+    val userInfo = remember {
+        UserSessionManager.getUserInfo(context)
+    }
 
-    // Verificar si hay sesión
-    LaunchedEffect(userInfo) {
-        if (userInfo == null) {
-            Toast.makeText(context, "Debes iniciar sesión primero", Toast.LENGTH_SHORT).show()
-            navController.navigate(Screen.Login.route) {
-                popUpTo(Screen.Perfil.route) { inclusive = true }
-            }
-        }
+    // ✅ Debug: Verificar si hay sesión
+    val isLoggedIn = UserSessionManager.isLoggedIn(context)
+
+    LaunchedEffect(Unit) {
+        println("🔍 DEBUG - Perfil Screen")
+        println("¿Está logueado? $isLoggedIn")
+        println("UserInfo: $userInfo")
     }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -42,7 +43,49 @@ fun PerfilScreen(navController: NavController, userViewModel: UserViewModel) {
     Column(modifier = Modifier.fillMaxSize()) {
         Header(navController = navController, userViewModel)
 
-        if (userInfo != null) {
+        // Si no hay usuario, mostrar pantalla de login requerido
+        if (userInfo == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = "Sin sesión",
+                    modifier = Modifier.size(100.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "No hay sesión activa",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Inicia sesión para ver tu perfil",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Perfil.route) { inclusive = true }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(0.6f)
+                ) {
+                    Icon(Icons.Default.Login, contentDescription = "Login")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Iniciar Sesión")
+                }
+            }
+        } else {
+            // Usuario logueado - Mostrar perfil
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -85,114 +128,38 @@ fun PerfilScreen(navController: NavController, userViewModel: UserViewModel) {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // ID de Usuario
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Badge,
-                                contentDescription = "ID",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "ID de Usuario",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = userInfo.id.toString(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        InfoRow(
+                            icon = Icons.Default.Badge,
+                            label = "ID de Usuario",
+                            value = userInfo.id.toString()
+                        )
 
-                        Divider()
+                        HorizontalDivider()
 
                         // Nombre
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = "Nombre",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "Nombre Completo",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = userInfo.nombre,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        InfoRow(
+                            icon = Icons.Default.Person,
+                            label = "Nombre Completo",
+                            value = userInfo.nombre
+                        )
 
-                        Divider()
+                        HorizontalDivider()
 
                         // Email
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = "Email",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "Correo Electrónico",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = userInfo.email,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        InfoRow(
+                            icon = Icons.Default.Email,
+                            label = "Correo Electrónico",
+                            value = userInfo.email
+                        )
 
-                        Divider()
+                        HorizontalDivider()
 
                         // Rol
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.AdminPanelSettings,
-                                contentDescription = "Rol",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "Rol",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = userInfo.rol,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        InfoRow(
+                            icon = Icons.Default.AdminPanelSettings,
+                            label = "Rol",
+                            value = userInfo.rol
+                        )
                     }
                 }
 
@@ -241,7 +208,7 @@ fun PerfilScreen(navController: NavController, userViewModel: UserViewModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        // Cerrar sesión
+                        // ✅ Cerrar sesión en ambos lugares
                         UserSessionManager.logout(context)
                         userViewModel.logout()
 
@@ -270,5 +237,37 @@ fun PerfilScreen(navController: NavController, userViewModel: UserViewModel) {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun InfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }

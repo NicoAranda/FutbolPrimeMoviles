@@ -17,6 +17,7 @@ import androidx.navigation.NavController
 import com.example.futbolprime.data.SessionManager
 import com.example.futbolprime.navigation.Screen
 import com.example.futbolprime.ui.components.Header
+import com.example.futbolprime.utils.UserSessionManager
 import com.example.futbolprime.viewmodel.*
 
 @Composable
@@ -46,7 +47,11 @@ fun LoginScreen(
             is LoginState.Success -> {
                 val usuario = (loginState as LoginState.Success).usuario
 
-                // ✅ Guardar sesión usando email como token
+                // ✅ GUARDAR SESIÓN EN AMBOS LUGARES
+                // 1. Guardar en UserSessionManager (SharedPreferences completo)
+                UserSessionManager.saveUserSession(context, usuario)
+
+                // 2. Guardar en UserViewModel (para el estado de la app)
                 userViewModel.login(
                     token = usuario.email,
                     nombre = usuario.nombre
