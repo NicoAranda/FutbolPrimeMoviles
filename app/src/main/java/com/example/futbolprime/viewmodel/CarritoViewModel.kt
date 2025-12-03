@@ -15,10 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class CarritoViewModel(
-    private val apiService: ApiService,
-    private val carritoRepo: CarritoRepository
-) : ViewModel() {
+class CarritoViewModel: ViewModel() {
+
+    private val apiService: ApiService = RetrofitClient.apiService
+    private val carritoRepo: CarritoRepository = CarritoRepository()
 
     var nombre = mutableStateOf("")
     var email = mutableStateOf("")
