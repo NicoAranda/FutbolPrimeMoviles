@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import android.util.Log
 import com.example.futbolprime.model.CarritoItem
 import com.example.futbolprime.model.Producto
+import com.example.futbolprime.network.ApiService
 import com.example.futbolprime.network.CrearPedidoDTO
 import com.example.futbolprime.network.CrearPedidoItemDTO
 import com.example.futbolprime.network.RetrofitClient
@@ -14,10 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class CarritoViewModel : ViewModel() {
-
-    private val apiService = RetrofitClient.apiService
-    private val carritoRepo = CarritoRepository()
+class CarritoViewModel(
+    private val apiService: ApiService,
+    private val carritoRepo: CarritoRepository
+) : ViewModel() {
 
     var nombre = mutableStateOf("")
     var email = mutableStateOf("")
@@ -154,7 +155,9 @@ class CarritoViewModel : ViewModel() {
             "El nombre no puede estar vacío"
         } else null
 
-        emailError.value = if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.value).matches()) {
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")
+
+        emailError.value = if (!emailRegex.matches(email.value)) {
             valido = false
             "Correo inválido"
         } else null
