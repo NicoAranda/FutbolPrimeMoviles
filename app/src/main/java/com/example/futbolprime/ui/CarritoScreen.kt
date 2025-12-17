@@ -34,6 +34,7 @@ import coil.compose.AsyncImage
 import com.example.futbolprime.MainActivity
 import com.example.futbolprime.R
 import com.example.futbolprime.navigation.Screen
+import com.example.futbolprime.ui.components.FormularioPago
 import com.example.futbolprime.ui.components.Header
 import com.example.futbolprime.utils.NotificationUtils
 import com.example.futbolprime.utils.UserSessionManager
@@ -52,16 +53,9 @@ fun CarritoScreen(
 
     val carrito by viewModel.carrito.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val carritoId by viewModel.carritoId.collectAsState()
 
-    // ==================== CARGA INICIAL ====================
     LaunchedEffect(usuarioId) {
-        if (usuarioId == -1L || !UserSessionManager.isLoggedIn(context)) {
-            Toast.makeText(context, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
-            navController.navigate(Screen.Login.route) {
-                popUpTo(Screen.Carrito.route) { inclusive = true }
-            }
-        } else {
+        if (usuarioId != -1L) {
             viewModel.cargarCarrito(usuarioId)
         }
     }
@@ -71,39 +65,27 @@ fun CarritoScreen(
         Header(navController = navController, userViewModel)
 
         if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
             return
         }
 
         if (carrito.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Tu carrito está vacío")
             }
             return
         }
 
-        // ==================== LISTA ====================
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .padding(12.dp),
+            modifier = Modifier.weight(1f).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(carrito) { item ->
                 val producto = item.producto
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
+                Card {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -114,80 +96,55 @@ fun CarritoScreen(
                             contentDescription = producto.nombre,
                             modifier = Modifier.size(100.dp),
                             contentScale = ContentScale.Crop,
-                            placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                            error = painterResource(id = R.drawable.ic_launcher_foreground)
+                            placeholder = painterResource(R.drawable.ic_launcher_foreground),
+                            error = painterResource(R.drawable.ic_launcher_foreground)
                         )
 
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 12.dp)
+                            modifier = Modifier.weight(1f).padding(start = 12.dp)
                         ) {
-                            Text(
-                                text = producto.nombre,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Text(producto.nombre, fontWeight = FontWeight.Bold)
 
-                            Text(
-                                text = "Subtotal: $${producto.precio * item.cantidad}",
-                                fontSize = 14.sp
-                            )
+                            Text("Subtotal: $${producto.precio * item.cantidad}")
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-
-                                // DISMINUIR
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(
-                                    enabled = !isLoading && item.cantidad > 1,
+                                    enabled = item.cantidad > 1,
                                     onClick = {
                                         viewModel.actualizarCantidad(
-                                            itemId = item.itemId,
-                                            nuevaCantidad = item.cantidad - 1,
-                                            usuarioId = usuarioId
+                                            item.itemId,
+                                            item.cantidad - 1,
+                                            usuarioId
                                         )
                                     }
                                 ) {
-                                    Icon(Icons.Default.Remove, contentDescription = "Disminuir")
+                                    Icon(Icons.Default.Remove, null)
                                 }
 
-                                Text(
-                                    text = item.cantidad.toString(),
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                )
+                                Text(item.cantidad.toString())
 
-                                // AUMENTAR
                                 IconButton(
-                                    enabled = !isLoading,
                                     onClick = {
                                         viewModel.actualizarCantidad(
-                                            itemId = item.itemId,
-                                            nuevaCantidad = item.cantidad + 1,
-                                            usuarioId = usuarioId
+                                            item.itemId,
+                                            item.cantidad + 1,
+                                            usuarioId
                                         )
                                     }
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Aumentar")
+                                    Icon(Icons.Default.Add, null)
                                 }
                             }
                         }
 
-                        // ELIMINAR
                         IconButton(
-                            enabled = !isLoading && carritoId != null,
                             onClick = {
-                                viewModel.eliminarProducto(
-                                    productoId = producto.id,
-                                    usuarioId = usuarioId
-                                )
+                                viewModel.eliminarProducto(usuarioId, producto.id)
                             }
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Eliminar",
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
@@ -196,16 +153,26 @@ fun CarritoScreen(
             }
         }
 
-        // ==================== TOTAL ====================
         val total = carrito.sumOf { it.producto.precio * it.cantidad }
+
+        FormularioPago(
+            context = context,
+            total = total,
+            onPagoConfirmado = {
+                // Opcional: aquí puedes vaciar el carrito
+                // viewModel.vaciarCarrito(usuarioId)
+                navController.navigate(Screen.Inicio.route) {
+                    popUpTo(Screen.Carrito.route) { inclusive = true }
+                }
+            }
+        )
+
 
         Text(
             text = "Total: $$total",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(16.dp)
+            modifier = Modifier.align(Alignment.End).padding(16.dp)
         )
     }
 }
