@@ -1,55 +1,65 @@
 package com.example.futbolprime.viewmodel
 
-import androidx.compose.runtime.mutableStateOf
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.util.Log
 import com.example.futbolprime.model.CarritoItem
 import com.example.futbolprime.model.Producto
-import com.example.futbolprime.network.ApiService
-import com.example.futbolprime.network.CrearPedidoDTO
-import com.example.futbolprime.network.CrearPedidoItemDTO
 import com.example.futbolprime.network.RetrofitClient
 import com.example.futbolprime.repository.CarritoRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class CarritoViewModel: ViewModel() {
+class CarritoViewModel : ViewModel() {
 
-    private val apiService: ApiService = RetrofitClient.apiService
-    private val carritoRepo: CarritoRepository = CarritoRepository()
-
-    var nombre = mutableStateOf("")
-    var email = mutableStateOf("")
-    var direccion = mutableStateOf("")
-    var tarjeta = mutableStateOf("")
-
-    var nombreError = mutableStateOf<String?>(null)
-    var emailError = mutableStateOf<String?>(null)
-    var direccionError = mutableStateOf<String?>(null)
-    var tarjetaError = mutableStateOf<String?>(null)
+    private val api = RetrofitClient.apiService
+    private val repo = CarritoRepository()
 
     private val _carrito = MutableStateFlow<List<CarritoItem>>(emptyList())
     val carrito: StateFlow<List<CarritoItem>> = _carrito
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
     private val _carritoId = MutableStateFlow<Long?>(null)
     val carritoId: StateFlow<Long?> = _carritoId
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    // ==================== CARGAR ====================
     fun cargarCarrito(usuarioId: Long) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val items = carritoRepo.obtenerCarrito(usuarioId)
-                _carrito.value = items
+                val response = api.obtenerCarritoUsuario(usuarioId)
+                if (response.isSuccessful && response.body() != null) {
 
-                val response = apiService.obtenerCarritoUsuario(usuarioId)
-                _carritoId.value = if (response.isSuccessful) response.body()?.id else null
+                    val dto = response.body()!!
+                    _carritoId.value = dto.id
+
+                    _carrito.value = dto.items.map { itemDto ->
+                        CarritoItem(
+                            itemId = itemDto.id,
+                            producto = Producto(
+                                id = itemDto.producto.id,
+                                sku = itemDto.producto.sku ?: "",
+                                nombre = itemDto.producto.nombre ?: "",
+                                precio = itemDto.producto.precio ?: 0,
+                                talla = itemDto.producto.talla?.toIntOrNull() ?: 0,
+                                color = itemDto.producto.color ?: "N/A",
+                                stock = itemDto.producto.stock ?: 0,
+                                marca = itemDto.producto.marcaNombre ?: "N/A",
+                                imagen = itemDto.producto.imagen
+                            ),
+                            cantidad = itemDto.cantidad,
+                            precioUnitSnap = itemDto.precioUnitSnap
+                        )
+                    }
+                } else {
+                    _carrito.value = emptyList()
+                    _carritoId.value = null
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("CarritoVM", "Error cargarCarrito", e)
                 _carrito.value = emptyList()
                 _carritoId.value = null
             } finally {
@@ -58,131 +68,20 @@ class CarritoViewModel: ViewModel() {
         }
     }
 
-    fun actualizarCantidad(itemId: Long, nuevaCantidad: Int, usuarioId: Long, onSuccess: () -> Unit) {
+    // ==================== ACTUALIZAR ====================
+    fun actualizarCantidad(itemId: Long, nuevaCantidad: Int, usuarioId: Long) {
         viewModelScope.launch {
-            val exito = carritoRepo.actualizarCantidad(itemId, nuevaCantidad)
-            if (exito) {
-                cargarCarrito(usuarioId)
-                onSuccess()
-            }
+            val ok = repo.actualizarCantidad(itemId, nuevaCantidad)
+            if (ok) cargarCarrito(usuarioId)
         }
     }
 
-    fun eliminarProducto(carritoId: Long, productoId: Long, usuarioId: Long, onSuccess: () -> Unit) {
+    // ==================== ELIMINAR ====================
+    fun eliminarProducto(usuarioId: Long, productoId: Long) {
         viewModelScope.launch {
-            val exito = carritoRepo.eliminarDelCarrito(carritoId, productoId)
-            if (exito) {
-                cargarCarrito(usuarioId)
-                onSuccess()
-            }
+            val id = _carritoId.value ?: return@launch
+            val ok = repo.eliminarDelCarrito(id, productoId)
+            if (ok) cargarCarrito(usuarioId)
         }
-    }
-
-    /**
-     * Finaliza la compra. Usa el CrearPedidoDTO que pegaste:
-     * data class CrearPedidoDTO(usuarioId, items, envio, descuento, dirNombre, dirLinea1, ...)
-     */
-    fun finalizarCompra(usuarioId: Long, onSuccess: () -> Unit = {}, onError: (String) -> Unit) {
-        if (!validarCampos()) {
-            onError("Por favor completa todos los campos correctamente")
-            return
-        }
-
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val carritoIdActual = _carritoId.value
-                if (carritoIdActual == null) {
-                    onError("No se pudo obtener el carrito (carritoId null)")
-                    _isLoading.value = false
-                    return@launch
-                }
-
-                // Mapear items del carrito a CrearPedidoItemDTO (incluyendo precioUnitSnap)
-                val itemsParaPedido = _carrito.value.map { carritoItem ->
-                    CrearPedidoItemDTO(
-                        productoId = carritoItem.producto.id.toLong(),
-                        cantidad = carritoItem.cantidad
-                    )
-                }
-
-                val pedidoRequest = CrearPedidoDTO(
-                    usuarioId = usuarioId,
-                    items = itemsParaPedido,
-                    envio = 0,
-                    descuento = 0,
-                    dirNombre = nombre.value.ifBlank { null },
-                    dirLinea1 = direccion.value.ifBlank { null },
-                    dirLinea2 = null,
-                    dirCiudad = null,
-                    dirRegion = null,
-                    dirZip = null,
-                    dirPais = null,
-                    dirTelefono = null
-                )
-
-                val response = apiService.crearPedido(pedidoRequest)
-                if (response.isSuccessful) {
-                    // Intentar vaciar carrito en backend y UI
-                    try {
-                        carritoRepo.vaciarCarrito(carritoIdActual)
-                    } catch (e: Exception) {
-                        Log.w("CarritoVM", "No se pudo vaciarCarrito luego de crear pedido: ${e.message}")
-                    }
-
-                    _carrito.value = emptyList()
-                    _carritoId.value = null
-                    limpiarCampos()
-                    onSuccess()
-                } else {
-                    val err = response.errorBody()?.string()
-                    onError("Error al procesar el pedido: ${response.code()} ${response.message()} ${err ?: ""}")
-                }
-            } catch (e: Exception) {
-                Log.e("CarritoVM", "Exception finalizarCompra: ${e.message}", e)
-                onError("Error de conexión: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun validarCampos(): Boolean {
-        var valido = true
-
-        nombreError.value = if (nombre.value.isBlank()) {
-            valido = false
-            "El nombre no puede estar vacío"
-        } else null
-
-        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")
-
-        emailError.value = if (!emailRegex.matches(email.value)) {
-            valido = false
-            "Correo inválido"
-        } else null
-
-        direccionError.value = if (direccion.value.isBlank()) {
-            valido = false
-            "La dirección no puede estar vacía"
-        } else null
-
-        tarjetaError.value = if (tarjeta.value.length < 12) {
-            valido = false
-            "Número de tarjeta inválido (mínimo 12 dígitos)"
-        } else null
-
-        return valido
-    }
-
-    fun limpiarCampos() {
-        nombre.value = ""
-        email.value = ""
-        direccion.value = ""
-        tarjeta.value = ""
-        nombreError.value = null
-        emailError.value = null
-        direccionError.value = null
-        tarjetaError.value = null
     }
 }

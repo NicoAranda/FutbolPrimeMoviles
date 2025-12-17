@@ -71,7 +71,7 @@ class CarritoRepository {
                 } else prodDto
 
                 val producto = Producto(
-                    id = (finalProductoDto.id ?: 0L).toInt(),
+                    id = finalProductoDto.id, // ✅ Long
                     sku = finalProductoDto.sku ?: "",
                     nombre = finalProductoDto.nombre ?: "",
                     precio = finalProductoDto.precio ?: 0,
@@ -82,14 +82,15 @@ class CarritoRepository {
                     imagen = finalProductoDto.imagen
                 )
 
-                val cantidad = item.cantidad ?: 1
-                val itemId = item.id ?: 0L
+                resultado.add(
+                    com.example.futbolprime.model.CarritoItem(
+                        itemId = item.id,                 // ✅ Long
+                        producto = producto,
+                        cantidad = item.cantidad,         // ✅ Int (no nullable)
+                        precioUnitSnap = item.precioUnitSnap // ✅ OBLIGATORIO
+                    )
+                )
 
-                resultado.add(com.example.futbolprime.model.CarritoItem(
-                    itemId = itemId,
-                    producto = producto,
-                    cantidad = cantidad
-                ))
             }
 
             resultado.toList()
@@ -147,7 +148,7 @@ class CarritoRepository {
     private fun crearProductoDesdeItem(item: CarritoItemDTO): Producto {
         val p = item.producto
         return Producto(
-            id = p.id.toInt(),
+            id = p.id.toLong(),
             sku = p.sku ?: "",
             nombre = p.nombre ?: "",
             precio = p.precio ?: 0,

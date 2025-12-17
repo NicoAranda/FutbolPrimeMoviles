@@ -1,9 +1,7 @@
 package com.example.futbolprime.model
 
-import com.example.futbolprime.R
-
 data class Producto(
-    val id: Int,
+    val id: Long,
     val sku: String,
     val nombre: String,
     val precio: Int,

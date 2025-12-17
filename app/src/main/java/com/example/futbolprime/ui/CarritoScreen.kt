@@ -2,6 +2,7 @@ package com.example.futbolprime.ui
 
 import android.Manifest
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -38,23 +39,25 @@ import com.example.futbolprime.utils.NotificationUtils
 import com.example.futbolprime.utils.UserSessionManager
 import com.example.futbolprime.viewmodel.CarritoViewModel
 import com.example.futbolprime.viewmodel.UserViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun CarritoScreen(
     navController: NavHostController,
-    userViewModel: UserViewModel,
-    viewModel: CarritoViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    userViewModel: UserViewModel
 ) {
+    val viewModel = remember { CarritoViewModel() }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     val usuarioId = UserSessionManager.getUserId(context)
 
-    // Redirigir a login si no hay sesión
+    val carrito by viewModel.carrito.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val carritoId by viewModel.carritoId.collectAsState()
+
+    // ==================== CARGA INICIAL ====================
     LaunchedEffect(usuarioId) {
         if (usuarioId == -1L || !UserSessionManager.isLoggedIn(context)) {
-            Toast.makeText(context, "Debes iniciar sesión primero", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
             navController.navigate(Screen.Login.route) {
                 popUpTo(Screen.Carrito.route) { inclusive = true }
             }
@@ -63,31 +66,8 @@ fun CarritoScreen(
         }
     }
 
-    val carrito by viewModel.carrito.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-
-    val requestNotifPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            enviarNotificacion(context)
-        } else {
-            Toast.makeText(context, "Permiso de notificaciones denegado", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    fun puedeNotificar(): Boolean {
-        return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            true
-        } else {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
+
         Header(navController = navController, userViewModel)
 
         if (isLoading) {
@@ -97,306 +77,135 @@ fun CarritoScreen(
             ) {
                 CircularProgressIndicator()
             }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            return
+        }
+
+        if (carrito.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Carrito de Compras",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
+                Text("Tu carrito está vacío")
+            }
+            return
+        }
 
-                if (carrito.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 100.dp),
-                        contentAlignment = Alignment.Center
+        // ==================== LISTA ====================
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(carrito) { item ->
+                val producto = item.producto
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                        AsyncImage(
+                            model = producto.imagen,
+                            contentDescription = producto.nombre,
+                            modifier = Modifier.size(100.dp),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                            error = painterResource(id = R.drawable.ic_launcher_foreground)
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp)
+                        ) {
                             Text(
-                                "Tu carrito está vacío",
-                                style = MaterialTheme.typography.bodyLarge
+                                text = producto.nombre,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = {
-                                navController.navigate(Screen.Productos.route)
-                            }) {
-                                Text("Ver Productos")
-                            }
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(carrito) { item ->
-                            val producto = item.producto
-                            val cantidad = item.cantidad
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(4.dp)
+
+                            Text(
+                                text = "Subtotal: $${producto.precio * item.cantidad}",
+                                fontSize = 14.sp
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .padding(12.dp)
-                                        .fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
+
+                                // DISMINUIR
+                                IconButton(
+                                    enabled = !isLoading && item.cantidad > 1,
+                                    onClick = {
+                                        viewModel.actualizarCantidad(
+                                            itemId = item.itemId,
+                                            nuevaCantidad = item.cantidad - 1,
+                                            usuarioId = usuarioId
+                                        )
+                                    }
                                 ) {
-                                    AsyncImage(
-                                        model = producto.imagen,
-                                        contentDescription = producto.nombre,
-                                        modifier = Modifier
-                                            .size(120.dp)
-                                            .padding(end = 10.dp),
-                                        contentScale = ContentScale.Crop,
-                                        placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                                        error = painterResource(id = R.drawable.ic_launcher_foreground)
-                                    )
+                                    Icon(Icons.Default.Remove, contentDescription = "Disminuir")
+                                }
 
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = producto.nombre,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "Subtotal: $${producto.precio * cantidad}",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                Text(
+                                    text = item.cantidad.toString(),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = {
-                                                if (cantidad > 1) {
-                                                    scope.launch {
-                                                        viewModel.actualizarCantidad(
-                                                            itemId = item.itemId,
-                                                            nuevaCantidad = cantidad - 1,
-                                                            usuarioId = usuarioId
-                                                        ) {}
-                                                    }
-                                                }
-                                            }) {
-                                                Icon(Icons.Default.Remove, contentDescription = "Disminuir")
-                                            }
-
-                                            Text(
-                                                text = cantidad.toString(),
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 4.dp)
-                                            )
-
-                                            IconButton(onClick = {
-                                                scope.launch {
-                                                    viewModel.actualizarCantidad(
-                                                        itemId = item.itemId,
-                                                        nuevaCantidad = cantidad + 1,
-                                                        usuarioId = usuarioId
-                                                    ) {}
-                                                }
-                                            }) {
-                                                Icon(Icons.Default.Add, contentDescription = "Aumentar")
-                                            }
-                                        }
-                                    }
-
-                                    IconButton(onClick = {
-                                        scope.launch {
-                                            viewModel.eliminarProducto(
-                                                carritoId = viewModel.carritoId.value ?: 0L,
-                                                productoId = item.producto.id.toLong(),
-                                                usuarioId = usuarioId
-                                            ) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Producto eliminado",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    }) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Eliminar producto",
-                                            tint = MaterialTheme.colorScheme.error
+                                // AUMENTAR
+                                IconButton(
+                                    enabled = !isLoading,
+                                    onClick = {
+                                        viewModel.actualizarCantidad(
+                                            itemId = item.itemId,
+                                            nuevaCantidad = item.cantidad + 1,
+                                            usuarioId = usuarioId
                                         )
                                     }
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Aumentar")
                                 }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    val total = carrito.sumOf { it.producto.precio * it.cantidad }
-
-                    Text(
-                        text = "Total: $${total}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .padding(top = 8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Datos de Pago",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        textAlign = TextAlign.Center
-                    )
-
-                    val nombre = viewModel.nombre.value
-                    val email = viewModel.email.value
-                    val direccion = viewModel.direccion.value
-                    val tarjeta = viewModel.tarjeta.value
-
-                    val nombreError = viewModel.nombreError.value
-                    val emailError = viewModel.emailError.value
-                    val direccionError = viewModel.direccionError.value
-                    val tarjetaError = viewModel.tarjetaError.value
-
-                    OutlinedTextField(
-                        value = nombre,
-                        onValueChange = { viewModel.nombre.value = it },
-                        label = { Text("Nombre completo") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Nombre") },
-                        isError = nombreError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (nombreError != null)
-                        Text(nombreError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { viewModel.email.value = it },
-                        label = { Text("Correo electrónico") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Correo") },
-                        isError = emailError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (emailError != null)
-                        Text(emailError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = direccion,
-                        onValueChange = { viewModel.direccion.value = it },
-                        label = { Text("Dirección de entrega") },
-                        leadingIcon = { Icon(Icons.Default.Home, contentDescription = "Dirección") },
-                        isError = direccionError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (direccionError != null)
-                        Text(direccionError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = tarjeta,
-                        onValueChange = { viewModel.tarjeta.value = it.filter { c -> c.isDigit() } },
-                        label = { Text("Número de tarjeta") },
-                        leadingIcon = { Icon(Icons.Default.CreditCard, contentDescription = "Tarjeta") },
-                        isError = tarjetaError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (tarjetaError != null)
-                        Text(tarjetaError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                viewModel.finalizarCompra(
-                                    usuarioId = usuarioId,
-                                    onSuccess = {
-                                        Toast.makeText(
-                                            context,
-                                            "Compra realizada con éxito",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            if (puedeNotificar()) {
-                                                enviarNotificacion(context)
-                                            } else {
-                                                requestNotifPermissionLauncher.launch(
-                                                    Manifest.permission.POST_NOTIFICATIONS
-                                                )
-                                            }
-                                        } else {
-                                            enviarNotificacion(context)
-                                        }
-                                    },
-                                    onError = { mensaje ->
-                                        Toast.makeText(context, mensaje, Toast.LENGTH_LONG).show()
-                                    }
+                        // ELIMINAR
+                        IconButton(
+                            enabled = !isLoading && carritoId != null,
+                            onClick = {
+                                viewModel.eliminarProducto(
+                                    productoId = producto.id,
+                                    usuarioId = usuarioId
                                 )
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Confirmar",
-                            modifier = Modifier.padding(end = 6.dp)
-                        )
-                        Text("Finalizar Compra")
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Eliminar",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-}
 
-fun enviarNotificacion(context: android.content.Context) {
-    val intent = Intent(context, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-    }
-    val pendingIntent: PendingIntent = PendingIntent.getActivity(
-        context, 0, intent, PendingIntent.FLAG_IMMUTABLE
-    )
+        // ==================== TOTAL ====================
+        val total = carrito.sumOf { it.producto.precio * it.cantidad }
 
-    val builder = NotificationCompat.Builder(context, NotificationUtils.CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_sys_download_done)
-        .setContentTitle("Compra completada")
-        .setContentText("Tu compra se ha procesado correctamente. ¡Gracias por confiar en Fútbol Prime!")
-        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        .setAutoCancel(true)
-        .setContentIntent(pendingIntent)
-
-    with(NotificationManagerCompat.from(context)) {
-        try {
-            notify(1001, builder.build())
-        } catch (e: SecurityException) {
-            e.printStackTrace()
-            Toast.makeText(
-                context,
-                "No se pudo mostrar la notificación (permiso denegado)",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        Text(
+            text = "Total: $$total",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(16.dp)
+        )
     }
 }

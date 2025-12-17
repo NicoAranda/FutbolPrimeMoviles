@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.network.ProductoDTO
 import com.example.futbolprime.network.RetrofitClient
-import com.example.futbolprime.R
 
 class ProductoRepository {
 
@@ -66,7 +65,7 @@ class ProductoRepository {
         Log.d("ProductoRepo", "DTO -> id=${this.id} sku=${this.sku} imagenRaw='$rawImagen' imagenUrl='$imagenUrl'")
 
         return Producto(
-            id = this.id.toInt(),            // <-- usa el ID real que viene del backend
+            id = this.id.toLong(),            // <-- usa el ID real que viene del backend
             sku = this.sku ?: "",
             nombre = this.nombre ?: "",
             precio = this.precio ?: 0,
