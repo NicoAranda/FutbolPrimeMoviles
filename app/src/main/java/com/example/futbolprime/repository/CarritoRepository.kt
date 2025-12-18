@@ -4,6 +4,8 @@ import android.util.Log
 import com.example.futbolprime.model.Producto
 import com.example.futbolprime.network.*
 import com.example.futbolprime.R
+import com.example.futbolprime.model.CarritoItem
+import com.example.futbolprime.model.CarritoResult
 import com.google.gson.Gson
 
 class CarritoRepository {
@@ -42,61 +44,38 @@ class CarritoRepository {
     /**
      * Obtiene el carrito completo del usuario
      */
-    suspend fun obtenerCarrito(usuarioId: Long): List<com.example.futbolprime.model.CarritoItem> {
+    suspend fun obtenerCarritoCompleto(usuarioId: Long): CarritoResult {
         return try {
             val resp = apiService.obtenerCarritoUsuario(usuarioId)
-            if (!resp.isSuccessful) {
-                Log.e("CarritoRepo", "obtenerCarrito error: ${resp.code()} ${resp.message()}")
-                return emptyList()
+            val carritoDto = resp.body() ?: return CarritoResult(0L, emptyList())
+
+            val items = carritoDto.items.map { item ->
+                CarritoItem(
+                    itemId = item.id,
+                    producto = Producto(
+                        id = item.producto.id,
+                        sku = item.producto.sku ?: "",
+                        nombre = item.producto.nombre ?: "",
+                        precio = item.producto.precio ?: 0,
+                        talla = item.producto.talla?.toIntOrNull() ?: 0,
+                        color = item.producto.color ?: "N/A",
+                        stock = item.producto.stock ?: 0,
+                        marca = item.producto.marcaNombre ?: "N/A",
+                        imagen = item.producto.imagen
+                    ),
+                    cantidad = item.cantidad,
+                    precioUnitSnap = item.precioUnitSnap
+                )
             }
 
-            val carritoDto: CarritoDTO = resp.body() ?: return emptyList()
-            val resultado = mutableListOf<com.example.futbolprime.model.CarritoItem>()
+            CarritoResult(
+                carritoId = carritoDto.id,
+                items = items
+            )
 
-            for (item in carritoDto.items) {
-                val prodDto = item.producto ?: continue
-
-                // Si imagen nula -> intentar obtener por SKU (como ya lo tenías)
-                val finalProductoDto = if (prodDto.imagen.isNullOrBlank()) {
-                    val sku = prodDto.sku
-                    if (!sku.isNullOrBlank()) {
-                        try {
-                            val detalleResp = apiService.obtenerProductoPorSku(sku)
-                            if (detalleResp.isSuccessful) detalleResp.body() ?: prodDto else prodDto
-                        } catch (e: Exception) {
-                            Log.w("CarritoRepo", "Error obtener por SKU='$sku': ${e.message}")
-                            prodDto
-                        }
-                    } else prodDto
-                } else prodDto
-
-                val producto = Producto(
-                    id = finalProductoDto.id, // ✅ Long
-                    sku = finalProductoDto.sku ?: "",
-                    nombre = finalProductoDto.nombre ?: "",
-                    precio = finalProductoDto.precio ?: 0,
-                    talla = finalProductoDto.talla?.toIntOrNull() ?: 0,
-                    color = finalProductoDto.color ?: "N/A",
-                    stock = finalProductoDto.stock ?: 0,
-                    marca = finalProductoDto.marcaNombre ?: "N/A",
-                    imagen = finalProductoDto.imagen
-                )
-
-                resultado.add(
-                    com.example.futbolprime.model.CarritoItem(
-                        itemId = item.id,                 // ✅ Long
-                        producto = producto,
-                        cantidad = item.cantidad,         // ✅ Int (no nullable)
-                        precioUnitSnap = item.precioUnitSnap // ✅ OBLIGATORIO
-                    )
-                )
-
-            }
-
-            resultado.toList()
         } catch (e: Exception) {
-            Log.e("CarritoRepo", "Exception obtenerCarrito: ${e.message}", e)
-            emptyList()
+            Log.e("CarritoRepo", "Error obtenerCarritoCompleto", e)
+            CarritoResult(0L, emptyList())
         }
     }
 

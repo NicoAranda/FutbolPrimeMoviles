@@ -139,12 +139,15 @@ fun CarritoScreen(
 
                         IconButton(
                             onClick = {
-                                viewModel.eliminarProducto(usuarioId, producto.id)
+                                viewModel.eliminarProducto(
+                                    usuarioId = usuarioId,
+                                    productoId = producto.id
+                                )
                             }
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = null,
+                                contentDescription = "Eliminar",
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
