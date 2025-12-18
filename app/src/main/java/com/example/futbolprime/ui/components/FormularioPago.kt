@@ -33,10 +33,7 @@ fun FormularioPago(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            Text(
-                text = "Datos de envío",
-                style = MaterialTheme.typography.titleMedium
-            )
+            Text("Datos de envío", style = MaterialTheme.typography.titleMedium)
 
             Spacer(Modifier.height(12.dp))
 
@@ -64,10 +61,7 @@ fun FormularioPago(
 
             if (error != null) {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = error!!,
-                    color = MaterialTheme.colorScheme.error
-                )
+                Text(error!!, color = MaterialTheme.colorScheme.error)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -76,22 +70,13 @@ fun FormularioPago(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     when {
-                        nombre.isBlank() ->
-                            error = "Debes ingresar tu nombre"
-                        direccion.isBlank() ->
-                            error = "Debes ingresar tu dirección"
-                        telefono.isBlank() ->
-                            error = "Debes ingresar un teléfono"
+                        nombre.isBlank() -> error = "Debes ingresar tu nombre"
+                        direccion.isBlank() -> error = "Debes ingresar tu dirección"
+                        telefono.isBlank() -> error = "Debes ingresar un teléfono"
                         else -> {
                             error = null
-
-                            Toast.makeText(
-                                context,
-                                "Compra realizada por $$total",
-                                Toast.LENGTH_LONG
-                            ).show()
-
-                            createNotificationChannel(context)
+                            NotificationUtils.createNotificationChannel(context)
+                            NotificationUtils.enviarNotificacionCompra(context, total)
                             onPagoConfirmado()
                         }
                     }
@@ -102,3 +87,4 @@ fun FormularioPago(
         }
     }
 }
+
